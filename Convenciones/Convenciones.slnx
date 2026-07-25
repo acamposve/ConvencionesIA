@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="..\src\DocumentIngestion.Domain\DocumentIngestion.Domain.csproj" />
+  <Project Path="..\src\DocumentIngestion.Application\DocumentIngestion.Application.csproj" />
+  <Project Path="..\tests\DocumentIngestion.Domain.Tests\DocumentIngestion.Domain.Tests.csproj" />
+  <Project Path="..\tests\DocumentIngestion.Application.Tests\DocumentIngestion.Application.Tests.csproj" />
+</Solution>

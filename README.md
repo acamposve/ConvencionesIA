@@ -1,1 +1,66 @@
 # ConvencionesIA
+
+ConvencionesIA is a specification-driven platform for building secure, multi-tenant services. The repository currently focuses on a document ingestion capability that demonstrates the architectural principles defined in the global constitution.
+
+## What we are building
+
+We are implementing a document ingestion workflow that:
+
+- accepts and validates document submissions for a specific tenant
+- enforces authentication and authorization at the service boundary
+- preserves business rules in the domain layer rather than in controllers or infrastructure
+- exposes versioned API and event contracts
+- uses automated tests across unit, integration, contract, and acceptance layers
+
+## Architectural principles
+
+This work follows the core principles of the constitution:
+
+- Specification-Driven Development
+- Domain-Driven Design
+- Clean Architecture
+- Vertical Slice Architecture
+- CQRS and event-driven patterns
+- Secure-by-Design and multi-tenant safeguards
+- Observability and testability as first-class requirements
+
+## Current implementation focus
+
+The repository currently contains:
+
+- a domain model for the document aggregate and its value objects
+- application workflow logic for accepted and rejected ingestions
+- an API contract and endpoint boundary for document submission
+- a persistence abstraction with an in-memory implementation for the current iteration
+- event publication and audit behavior for accepted ingestions
+- a comprehensive test suite covering core scenarios
+
+## Repository layout
+
+- [src/DocumentIngestion.Domain](src/DocumentIngestion.Domain) - domain models, business rules, and services
+- [src/DocumentIngestion.Application](src/DocumentIngestion.Application) - use cases, contracts, repositories, and security enforcement
+- [tests](tests) - unit, integration, contract, and acceptance tests
+- [docs/document-ingestion](docs/document-ingestion) - feature-specific documentation and rollout notes
+
+## Quality bar
+
+Every change should:
+
+1. start from approved specifications
+2. preserve architecture boundaries
+3. include tests
+4. keep documentation aligned with implementation
+5. respect tenant isolation and security requirements
+
+## Verification
+
+The current feature implementation is covered by automated tests. The documented verification run is:
+
+- command: dotnet test Convenciones/Convenciones.slnx
+- result: 37 tests passed, 0 failed
+
+## Next steps
+
+- replace the in-memory repository with a durable persistence provider
+- finalize authentication, authorization, logging, and tracing configuration for deployment
+- keep API and event contracts versioned and backward compatible

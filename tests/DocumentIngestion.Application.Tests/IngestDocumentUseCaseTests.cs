@@ -66,14 +66,6 @@ public class IngestDocumentUseCaseTests
         Assert.Null(publisher.PublishedDocument);
     }
 
-    [Fact]
-    public void Constructor_ThrowsWhenDetectionServiceIsNull()
-    {
-        var ex = Assert.Throws<ArgumentNullException>(() => new DetectDocumentTypeUseCase(null!));
-
-        Assert.Equal("detectionService", ex.ParamName);
-    }
-
     private sealed class TestDocumentRepository : IDocumentRepository
 
     {

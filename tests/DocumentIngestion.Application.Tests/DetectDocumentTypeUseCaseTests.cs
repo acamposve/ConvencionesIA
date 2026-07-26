@@ -76,6 +76,14 @@ public class DetectDocumentTypeUseCaseTests
     }
 
     [Fact]
+    public void Constructor_ThrowsWhenDetectionServiceIsNull()
+    {
+        var ex = Assert.Throws<ArgumentNullException>(() => new DetectDocumentTypeUseCase(null!));
+
+        Assert.Equal("detectionService", ex.ParamName);
+    }
+
+    [Fact]
     public void Execute_DoesNotReprocessADocumentThatAlreadyHasDetectedType()
     {
         var detectionService = new CountingDocumentTypeDetectionService();

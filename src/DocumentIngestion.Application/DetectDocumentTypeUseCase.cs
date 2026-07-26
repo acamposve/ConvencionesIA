@@ -6,16 +6,23 @@ public sealed class DetectDocumentTypeUseCase
 {
     private readonly IDocumentTypeDetectionService _detectionService;
     private readonly Action<string>? _logger;
+    private readonly DocumentTypeDetectionEventPublisher _eventPublisher;
 
     public DetectDocumentTypeUseCase(IDocumentTypeDetectionService detectionService)
-        : this(detectionService, null)
+        : this(detectionService, null, null)
     {
     }
 
     public DetectDocumentTypeUseCase(IDocumentTypeDetectionService detectionService, Action<string>? logger)
+        : this(detectionService, logger, null)
+    {
+    }
+
+    public DetectDocumentTypeUseCase(IDocumentTypeDetectionService detectionService, Action<string>? logger, DocumentTypeDetectionEventPublisher? eventPublisher)
     {
         _detectionService = detectionService ?? throw new ArgumentNullException(nameof(detectionService));
         _logger = logger;
+        _eventPublisher = eventPublisher ?? new DocumentTypeDetectionEventPublisher();
     }
 
     public Document Execute(Document document)
@@ -40,6 +47,7 @@ public sealed class DetectDocumentTypeUseCase
             }
 
             document.RecordDetectedDocumentType(detectedType);
+            _eventPublisher.PublishSuccessfulDetection(document);
             _logger?.Invoke($"DocumentTypeDetection|DocumentId={document.Id.Value}|TenantId={document.TenantId.Value}|DetectedType={detectedType.Value}|ProcessingTimeMs={(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds:0}|CorrelationId={document.CorrelationId.Value}");
             return document;
         }
@@ -57,6 +65,7 @@ public sealed class DetectDocumentTypeUseCase
     private void RejectDocument(Document document, string reason, DateTimeOffset startedAt)
     {
         document.RejectForProcessingFailure(new RejectionReason(reason));
+        _eventPublisher.PublishDetectionFailure(document, reason);
         _logger?.Invoke($"DocumentTypeDetection|DocumentId={document.Id.Value}|TenantId={document.TenantId.Value}|DetectedType=Unknown|ProcessingTimeMs={(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds:0}|CorrelationId={document.CorrelationId.Value}");
     }
 }

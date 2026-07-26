@@ -18,7 +18,11 @@ public static class ServiceCollectionExtensions
             sp.GetRequiredService<ImageOcrTextExtractionService>()));
         services.AddSingleton<IDocumentRepository, InMemoryDocumentRepository>();
         services.AddSingleton<IIngestionEventPublisher, DocumentIngestionEventPublisher>();
-        services.AddTransient<DetectDocumentTypeUseCase>();
+        services.AddSingleton<DocumentTypeDetectionEventPublisher>();
+        services.AddTransient<DetectDocumentTypeUseCase>(sp => new DetectDocumentTypeUseCase(
+            sp.GetRequiredService<IDocumentTypeDetectionService>(),
+            null,
+            sp.GetRequiredService<DocumentTypeDetectionEventPublisher>()));
         services.AddTransient<ExtractTextUseCase>(sp => new ExtractTextUseCase(
             sp.GetRequiredService<TextExtractionServiceRouter>(),
             null,

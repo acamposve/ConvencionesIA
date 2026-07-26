@@ -31,7 +31,7 @@ public sealed class TextExtractionServiceRouter
         return documentType.ToLowerInvariant() switch
         {
             "pdf" or "application/pdf" => _pdfService,
-            "docx" or "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => _docxService,
+            "doc" or "application/msword" or "docx" or "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => _docxService,
             "png" or "image/png" or "jpeg" or "image/jpeg" or "jpg" or "image/jpg" or "tiff" or "image/tiff" => _imageService,
             _ => throw new InvalidOperationException("Unsupported document type for text extraction.")
         };

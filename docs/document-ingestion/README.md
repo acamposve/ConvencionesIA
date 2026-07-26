@@ -51,7 +51,7 @@ The feature is covered by:
 Verification evidence:
 
 - Command executed: dotnet test Convenciones/Convenciones.slnx
-- Result: 72 tests passed, 0 failed
+- Result: 79 tests passed, 0 failed
 
 ## Rollout Readiness Review
 

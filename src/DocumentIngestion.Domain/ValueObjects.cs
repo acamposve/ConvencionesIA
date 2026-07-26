@@ -110,13 +110,15 @@ public enum IngestionState
 {
     PendingAcceptance,
     Accepted,
-    Rejected
+    Rejected,
+    Failed
 }
 
 public enum IngestionOutcome
 {
     Accepted,
-    Rejected
+    Rejected,
+    Failed
 }
 
 public sealed record RejectionReason(string Value)

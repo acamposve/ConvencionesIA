@@ -14,7 +14,7 @@ public sealed class DetectDocumentTypeUseCase
 
     public DetectDocumentTypeUseCase(IDocumentTypeDetectionService detectionService, Action<string>? logger)
     {
-        _detectionService = detectionService;
+        _detectionService = detectionService ?? throw new ArgumentNullException(nameof(detectionService));
         _logger = logger;
     }
 
@@ -35,6 +35,7 @@ public sealed class DetectDocumentTypeUseCase
 
             if (detectedType.Value.Equals("Unknown", StringComparison.OrdinalIgnoreCase))
             {
+                document.RejectForProcessingFailure(new RejectionReason("Unsupported document type"));
                 _logger?.Invoke($"DocumentTypeDetection|DocumentId={document.Id.Value}|TenantId={document.TenantId.Value}|DetectedType=Unknown|ProcessingTimeMs={(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds:0}|CorrelationId={document.CorrelationId.Value}");
                 throw new DomainValidationException("Unsupported document type");
             }

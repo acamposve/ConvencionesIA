@@ -110,6 +110,9 @@ public class IngestDocumentUseCaseTests
         var ex = Assert.Throws<DomainValidationException>(() => useCase.Execute(document));
 
         Assert.Equal("Unsupported document type", ex.Message);
+        Assert.Equal(IngestionState.Rejected, document.State);
+        Assert.Equal(IngestionOutcome.Rejected, document.Outcome);
+        Assert.Equal("Unsupported document type", document.RejectionReason?.Value);
     }
 
     [Fact]
@@ -159,6 +162,14 @@ public class IngestDocumentUseCaseTests
         Assert.Equal(0, detectionService.CallCount);
     }
 
+    [Fact]
+    public void Constructor_ThrowsWhenDetectionServiceIsNull()
+    {
+        var ex = Assert.Throws<ArgumentNullException>(() => new DetectDocumentTypeUseCase(null!));
+
+        Assert.Equal("detectionService", ex.ParamName);
+    }
+
     private sealed class TestDocumentRepository : IDocumentRepository
 
     {
@@ -180,16 +191,16 @@ public class IngestDocumentUseCaseTests
 
     private sealed class TestDocumentTypeDetectionService : IDocumentTypeDetectionService
     {
-        private readonly string _mimeType;
+        private readonly string _configuredMimeType;
 
-        public TestDocumentTypeDetectionService(string mimeType)
+        public TestDocumentTypeDetectionService(string configuredMimeType)
         {
-            _mimeType = mimeType;
+            _configuredMimeType = configuredMimeType;
         }
 
         public DocumentType Detect(string mimeType)
         {
-            return mimeType switch
+            return _configuredMimeType switch
             {
                 "application/pdf" => new DocumentType("Pdf"),
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => new DocumentType("Docx"),

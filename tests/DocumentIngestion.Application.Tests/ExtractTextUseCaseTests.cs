@@ -1,4 +1,5 @@
 using DocumentIngestion.Domain;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace DocumentIngestion.Application.Tests;
@@ -47,7 +48,7 @@ public class ExtractTextUseCaseTests
         var ex = Assert.Throws<InvalidOperationException>(() => useCase.Execute(document));
 
         Assert.Equal("boom", ex.Message);
-        Assert.Equal(IngestionState.Rejected, document.State);
+        Assert.Equal(IngestionState.Failed, document.State);
         Assert.Equal("boom", document.RejectionReason?.Value);
     }
 
@@ -70,7 +71,7 @@ public class ExtractTextUseCaseTests
         var ex = Assert.Throws<ArgumentException>(() => useCase.Execute(document));
 
         Assert.Equal("unexpected", ex.Message);
-        Assert.Equal(IngestionState.Rejected, document.State);
+        Assert.Equal(IngestionState.Failed, document.State);
         Assert.Equal("unexpected", document.RejectionReason?.Value);
     }
 
@@ -95,6 +96,78 @@ public class ExtractTextUseCaseTests
 
         Assert.Same(document, result);
         Assert.Equal("original text", result.ExtractedText?.Value);
+    }
+
+    [Fact]
+    public void Execute_UsesDetectedDocumentTypeForDocxExtraction()
+    {
+        var useCase = new ExtractTextUseCase(new DocxTextExtractionService());
+
+        var document = Document.Accept(
+            new DocumentId("doc-24"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("Word"),
+            new DocumentMetadata(2048, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "en"),
+            new Provenance("https://example.com/file.docx", "Example"),
+            new CorrelationId("corr-24"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.docx"));
+        document.RecordDetectedDocumentType(new DocumentType("Docx"));
+
+        var result = useCase.Execute(document);
+
+        Assert.Same(document, result);
+        Assert.Equal("Sample DOCX text from the document body", result.ExtractedText?.Value);
+    }
+
+    [Fact]
+    public void Execute_SkipsExtractionForRejectedDocument()
+    {
+        var extractionService = new TestTextExtractionService("new text", "Pdf");
+        var useCase = new ExtractTextUseCase(extractionService);
+
+        var document = Document.Reject(
+            new DocumentId("doc-24"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-24"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"),
+            new RejectionReason("upstream rejection"));
+
+        var result = useCase.Execute(document);
+
+        Assert.Same(document, result);
+        Assert.Equal(IngestionState.Rejected, document.State);
+        Assert.Equal(IngestionOutcome.Rejected, document.Outcome);
+        Assert.Null(document.ExtractedText);
+    }
+
+    [Fact]
+    public void ServiceCollectionRegistration_ResolvesExtractTextUseCaseWithStrategyAwareRouter()
+    {
+        var services = new ServiceCollection();
+        services.AddDocumentIngestionApplication();
+
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+        var useCase = provider.GetRequiredService<ExtractTextUseCase>();
+
+        var document = Document.Accept(
+            new DocumentId("doc-25"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("Word"),
+            new DocumentMetadata(2048, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "en"),
+            new Provenance("https://example.com/file.docx", "Example"),
+            new CorrelationId("corr-25"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.docx"));
+        document.RecordDetectedDocumentType(new DocumentType("Docx"));
+
+        var result = useCase.Execute(document);
+
+        Assert.Equal("Sample DOCX text from the document body", result.ExtractedText?.Value);
     }
 
     private sealed class TestTextExtractionService : ITextExtractionService

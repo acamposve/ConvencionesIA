@@ -180,8 +180,8 @@ public class DocumentIngestionIntegrationTests
         var ex = Assert.Throws<InvalidOperationException>(() => useCase.Execute(document));
 
         Assert.Equal("boom", ex.Message);
-        Assert.Equal(IngestionState.Rejected, document.State);
-        Assert.Equal(IngestionOutcome.Rejected, document.Outcome);
+        Assert.Equal(IngestionState.Failed, document.State);
+        Assert.Equal(IngestionOutcome.Failed, document.Outcome);
         Assert.Equal("boom", document.RejectionReason?.Value);
     }
 

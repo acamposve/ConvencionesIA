@@ -9,11 +9,20 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IDocumentTypeDetectionService, MimeTypeDocumentTypeDetectionService>();
-        services.AddSingleton<ITextExtractionService, PdfTextExtractionService>();
-        services.AddSingleton<ITextExtractionService, DocxTextExtractionService>();
-        services.AddSingleton<ITextExtractionService, ImageOcrTextExtractionService>();
+        services.AddSingleton<PdfTextExtractionService>();
+        services.AddSingleton<DocxTextExtractionService>();
+        services.AddSingleton<ImageOcrTextExtractionService>();
+        services.AddSingleton<TextExtractionServiceRouter>(sp => new TextExtractionServiceRouter(
+            sp.GetRequiredService<PdfTextExtractionService>(),
+            sp.GetRequiredService<DocxTextExtractionService>(),
+            sp.GetRequiredService<ImageOcrTextExtractionService>()));
+        services.AddSingleton<IDocumentRepository, InMemoryDocumentRepository>();
+        services.AddSingleton<IIngestionEventPublisher, DocumentIngestionEventPublisher>();
         services.AddTransient<DetectDocumentTypeUseCase>();
-        services.AddTransient<ExtractTextUseCase>();
+        services.AddTransient<ExtractTextUseCase>(sp => new ExtractTextUseCase(
+            sp.GetRequiredService<TextExtractionServiceRouter>(),
+            null,
+            sp.GetService<DocumentIngestionEventPublisher>()));
         services.AddTransient<IngestDocumentUseCase>();
         services.AddTransient<DocumentIngestionEndpoint>();
 

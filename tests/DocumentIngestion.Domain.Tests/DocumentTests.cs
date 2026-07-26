@@ -245,7 +245,7 @@ public class DocumentTests
 
         var ex = Assert.Throws<InvalidOperationException>(() => document.RecordDetectedDocumentType(new DocumentType("Pdf")));
 
-        Assert.Equal("Cannot record document type after the document has been rejected.", ex.Message);
+        Assert.Equal("Cannot record document type after the document has been rejected or failed.", ex.Message);
     }
 
     [Fact]
@@ -268,7 +268,7 @@ public class DocumentTests
     }
 
     [Fact]
-    public void FailExtraction_TransitionsDocumentToRejectedState()
+    public void FailExtraction_TransitionsDocumentToFailedState()
     {
         var document = Document.Accept(
             new DocumentId("doc-14"),
@@ -282,8 +282,8 @@ public class DocumentTests
 
         document.FailExtraction("Extraction failed");
 
-        Assert.Equal(IngestionState.Rejected, document.State);
-        Assert.Equal(IngestionOutcome.Rejected, document.Outcome);
+        Assert.Equal(IngestionState.Failed, document.State);
+        Assert.Equal(IngestionOutcome.Failed, document.Outcome);
         Assert.Equal("Extraction failed", document.RejectionReason?.Value);
     }
 
@@ -323,6 +323,6 @@ public class DocumentTests
 
         var ex = Assert.Throws<InvalidOperationException>(() => document.FailExtraction("Extraction failed"));
 
-        Assert.Equal("Cannot fail extraction after the document has been rejected.", ex.Message);
+        Assert.Equal("Cannot fail extraction after the document has been rejected or failed.", ex.Message);
     }
 }

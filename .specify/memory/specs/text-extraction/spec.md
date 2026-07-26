@@ -2,7 +2,7 @@
 
 **Feature:** Text Extraction
 
-**Status:** Draft
+**Status:** Approved
 
 **Version:** 1.0.0
 

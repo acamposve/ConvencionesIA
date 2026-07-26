@@ -10,7 +10,7 @@
 
 # Objective
 
-Implement the Text Extraction feature according to the approved specification.
+Implement the Text Extraction feature according to the current specification.
 
 Each task must be independently implementable, reviewable, and testable.
 

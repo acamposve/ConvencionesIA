@@ -46,4 +46,47 @@ public class DocumentIngestionEventPublisherTests
 
         Assert.Empty(publisher.AuditRecords);
     }
+
+    [Fact]
+    public void PublishTextExtracted_CreatesAuditRecordForSuccessfulExtraction()
+    {
+        var publisher = new DocumentIngestionEventPublisher();
+        var document = Document.Accept(
+            new DocumentId("doc-3"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-3"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+        document.RecordDetectedDocumentType(new DocumentType("Pdf"));
+
+        publisher.PublishTextExtracted(document, "Pdf", 12);
+
+        Assert.Single(publisher.AuditRecords);
+        Assert.Equal("TextExtracted", publisher.AuditRecords[0].EventName);
+        Assert.Equal("v1", publisher.AuditRecords[0].EventVersion);
+    }
+
+    [Fact]
+    public void PublishTextExtractionFailed_CreatesAuditRecordForFailedExtraction()
+    {
+        var publisher = new DocumentIngestionEventPublisher();
+        var document = Document.Accept(
+            new DocumentId("doc-4"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-4"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        publisher.PublishTextExtractionFailed(document, "boom");
+
+        Assert.Single(publisher.AuditRecords);
+        Assert.Equal("TextExtractionFailed", publisher.AuditRecords[0].EventName);
+        Assert.Equal("v1", publisher.AuditRecords[0].EventVersion);
+    }
 }

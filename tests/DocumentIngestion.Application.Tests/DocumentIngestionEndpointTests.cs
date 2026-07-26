@@ -130,5 +130,13 @@ public class DocumentIngestionEndpointTests
         public void Publish(Document document)
         {
         }
+
+        public void PublishTextExtracted(Document document, string extractionStrategy, int textLength)
+        {
+        }
+
+        public void PublishTextExtractionFailed(Document document, string reason)
+        {
+        }
     }
 }

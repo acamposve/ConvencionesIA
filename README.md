@@ -33,6 +33,7 @@ The repository currently contains:
 - an API contract and endpoint boundary for document submission
 - a persistence abstraction with an in-memory implementation for the current iteration
 - event publication and audit behavior for accepted ingestions
+- MIME-based document-type detection with a distinct DocumentType value object and immediate rejection for unsupported or undetermined types
 - a comprehensive test suite covering core scenarios
 
 ## Repository layout
@@ -57,7 +58,7 @@ Every change should:
 The current feature implementation is covered by automated tests. The documented verification run is:
 
 - command: dotnet test Convenciones/Convenciones.slnx
-- result: 37 tests passed, 0 failed
+- result: 79 tests passed, 0 failed
 
 ## Next steps
 

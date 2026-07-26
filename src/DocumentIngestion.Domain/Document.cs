@@ -48,6 +48,10 @@ public sealed class Document
     public ProcessingStage ProcessingStage { get; private set; }
     public IngestionOutcome? Outcome { get; private set; }
     public RejectionReason? RejectionReason { get; private set; }
+    public DocumentType? DetectedDocumentType { get; private set; }
+    public RawText? ExtractedText { get; private set; }
+    public bool HasDetectedDocumentType => DetectedDocumentType is not null;
+    public bool HasExtractedText => ExtractedText is not null;
     public IReadOnlyList<DocumentRevision> Revisions => _revisions.AsReadOnly();
 
     public static Document Accept(
@@ -157,6 +161,82 @@ public sealed class Document
         return format.Value.Equals("PDF", StringComparison.OrdinalIgnoreCase)
             || format.Value.Equals("Word", StringComparison.OrdinalIgnoreCase)
             || format.Value.Equals("Image", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public void RecordDetectedDocumentType(DocumentType documentType)
+    {
+        ArgumentNullException.ThrowIfNull(documentType);
+
+        if (HasDetectedDocumentType)
+        {
+            throw new InvalidOperationException("Document type detection can only be recorded once.");
+        }
+
+        if (documentType.Value.Equals("Unknown", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new DomainValidationException("Unsupported document type");
+        }
+
+        if (State == IngestionState.Rejected || State == IngestionState.Failed)
+        {
+            throw new InvalidOperationException("Cannot record document type after the document has been rejected or failed.");
+        }
+
+        DetectedDocumentType = documentType;
+    }
+
+    public void RecordExtractedText(RawText rawText)
+    {
+        ArgumentNullException.ThrowIfNull(rawText);
+
+        if (State == IngestionState.Rejected || State == IngestionState.Failed)
+        {
+            throw new InvalidOperationException("Cannot record extracted text after the document has been rejected or failed.");
+        }
+
+        if (HasExtractedText)
+        {
+            throw new InvalidOperationException("Extracted text can only be recorded once.");
+        }
+
+        ExtractedText = rawText;
+    }
+
+    public void FailExtraction(string reason)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+
+        if (State == IngestionState.Rejected || State == IngestionState.Failed)
+        {
+            throw new InvalidOperationException("Cannot fail extraction after the document has been rejected or failed.");
+        }
+
+        State = IngestionState.Failed;
+        ProcessingStage = ProcessingStage.None;
+        Outcome = IngestionOutcome.Failed;
+        RejectionReason = new RejectionReason(reason);
+        _revisions.Add(new DocumentRevision(_revisions.Count + 1, DateTimeOffset.UtcNow, IngestionOutcome.Failed, ProcessingStage.None));
+    }
+
+    public void RejectForProcessingFailure(RejectionReason rejectionReason)
+    {
+        ArgumentNullException.ThrowIfNull(rejectionReason);
+
+        if (State != IngestionState.Accepted)
+        {
+            throw new InvalidOperationException("Only accepted documents can be rejected during processing.");
+        }
+
+        State = IngestionState.Rejected;
+        ProcessingStage = ProcessingStage.None;
+        Outcome = IngestionOutcome.Rejected;
+        RejectionReason = rejectionReason;
+        _revisions.Add(new DocumentRevision(_revisions.Count + 1, DateTimeOffset.UtcNow, IngestionOutcome.Rejected, ProcessingStage.None));
+    }
+
+    public string DescribeExtractionFailureReason()
+    {
+        return RejectionReason?.Value ?? "Extraction failed";
     }
 
     private void RejectInternal(RejectionReason rejectionReason)

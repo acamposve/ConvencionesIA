@@ -20,6 +20,58 @@ public sealed record DocumentFormat(string Value)
     public override string ToString() => Value;
 }
 
+public sealed record DocumentType
+{
+    private static readonly HashSet<string> SupportedValues = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Pdf",
+        "Doc",
+        "Docx",
+        "Png",
+        "Jpeg",
+        "Tiff",
+        "Unknown"
+    };
+
+    public DocumentType(string value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        var trimmedValue = value.Trim();
+        if (string.IsNullOrWhiteSpace(trimmedValue))
+        {
+            throw new DomainValidationException("Unsupported document type");
+        }
+
+        var normalizedValue = Normalize(trimmedValue);
+        if (!SupportedValues.Contains(normalizedValue))
+        {
+            throw new DomainValidationException("Unsupported document type");
+        }
+
+        Value = normalizedValue;
+    }
+
+    public string Value { get; }
+
+    public override string ToString() => Value;
+
+    private static string Normalize(string value)
+    {
+        return value.ToLowerInvariant() switch
+        {
+            "pdf" => "Pdf",
+            "doc" => "Doc",
+            "docx" => "Docx",
+            "png" => "Png",
+            "jpg" or "jpeg" => "Jpeg",
+            "tiff" => "Tiff",
+            "unknown" => "Unknown",
+            _ => value.Trim()
+        };
+    }
+}
+
 public sealed record CorrelationId(string Value)
 {
     public override string ToString() => Value;
@@ -58,16 +110,23 @@ public enum IngestionState
 {
     PendingAcceptance,
     Accepted,
-    Rejected
+    Rejected,
+    Failed
 }
 
 public enum IngestionOutcome
 {
     Accepted,
-    Rejected
+    Rejected,
+    Failed
 }
 
 public sealed record RejectionReason(string Value)
+{
+    public override string ToString() => Value;
+}
+
+public sealed record RawText(string Value)
 {
     public override string ToString() => Value;
 }

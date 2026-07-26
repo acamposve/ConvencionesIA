@@ -67,6 +67,7 @@ public class IngestDocumentUseCaseTests
     }
 
     private sealed class TestDocumentRepository : IDocumentRepository
+
     {
         public Document? SavedDocument { get; private set; }
 
@@ -82,5 +83,14 @@ public class IngestDocumentUseCaseTests
         public Document? PublishedDocument { get; private set; }
 
         public void Publish(Document document) => PublishedDocument = document;
+
+        public void PublishTextExtracted(Document document, string extractionStrategy, int textLength)
+        {
+        }
+
+        public void PublishTextExtractionFailed(Document document, string reason)
+        {
+        }
     }
+
 }

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Document Ingestion feature now provides a domain-driven ingestion workflow for accepting or rejecting document submissions within tenant boundaries. The implementation covers the domain model, application workflow, endpoint contract, repository persistence abstraction, event publication, security enforcement, and a full test suite.
+The Document Ingestion feature now provides a domain-driven ingestion workflow for accepting or rejecting document submissions within tenant boundaries. The implementation covers the domain model, application workflow, endpoint contract, repository persistence abstraction, event publication, security enforcement, and a full test suite. It also includes a text-extraction capability that stores extracted content as RawText and publishes structured extraction events for success and failure.
 
 ## Approved Business Decisions
 
@@ -20,10 +20,13 @@ The current implementation includes:
 
 - Domain aggregate and value objects for document state, provenance, metadata, correlation, and idempotency
 - Application workflow orchestration for accepted and rejected outcomes
+- MIME-based document-type detection using a distinct DocumentType value object
+- Immediate rejection of unsupported or undetermined document types to prevent invalid processing
 - API contract for request and response payloads
 - Persistence contract for tenant-aware document state and revision history
 - Repository abstraction backed by an in-memory implementation for the current iteration
-- Event publisher and audit record generation for accepted ingestions
+- Event publisher and audit record generation for accepted ingestions and text-extraction outcomes
+- A text-extraction workflow that routes PDF, DOCX, and image content through the appropriate strategy and stores extracted text on the document aggregate
 - Tenant and authentication enforcement at the endpoint boundary
 
 ## Security and Multi-Tenant Considerations
@@ -48,7 +51,7 @@ The feature is covered by:
 Verification evidence:
 
 - Command executed: dotnet test Convenciones/Convenciones.slnx
-- Result: 37 tests passed, 0 failed
+- Result: 72 tests passed, 0 failed
 
 ## Rollout Readiness Review
 

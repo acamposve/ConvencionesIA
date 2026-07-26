@@ -95,6 +95,96 @@ public class DocumentIngestionIntegrationTests
         Assert.Empty(publisher.AuditRecords);
     }
 
+    [Fact]
+    public void DetectionWorkflow_PersistsDetectedTypeForSupportedMimeType()
+    {
+        var repository = new InMemoryDocumentRepository();
+        var publisher = new DocumentIngestionEventPublisher();
+        var detectionService = new MimeTypeDocumentTypeDetectionService();
+        var detectionUseCase = new DetectDocumentTypeUseCase(detectionService);
+
+        var document = Document.Accept(
+            new DocumentId("doc-15"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-15"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        var result = detectionUseCase.Execute(document);
+
+        Assert.True(result.HasDetectedDocumentType);
+        Assert.Equal("Pdf", result.DetectedDocumentType?.Value);
+    }
+
+    [Fact]
+    public void DetectionWorkflow_RejectsUnsupportedMimeType()
+    {
+        var detectionService = new MimeTypeDocumentTypeDetectionService();
+        var detectionUseCase = new DetectDocumentTypeUseCase(detectionService);
+
+        var document = Document.Accept(
+            new DocumentId("doc-16"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/octet-stream", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-16"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        var ex = Assert.Throws<DomainValidationException>(() => detectionUseCase.Execute(document));
+
+        Assert.Equal("Unsupported document type", ex.Message);
+    }
+
+    [Fact]
+    public void ExtractTextWorkflow_RecordsExtractedTextAndUpdatesDocumentState()
+    {
+        var useCase = new ExtractTextUseCase(new PdfTextExtractionService());
+        var document = Document.Accept(
+            new DocumentId("doc-17"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-17"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        var result = useCase.Execute(document);
+
+        Assert.Same(document, result);
+        Assert.True(result.HasExtractedText);
+        Assert.Equal("Sample PDF text from page 1\nSample PDF text from page 2", result.ExtractedText?.Value);
+        Assert.Equal(IngestionState.Accepted, result.State);
+        Assert.Equal(ProcessingStage.PendingProcessing, result.ProcessingStage);
+    }
+
+    [Fact]
+    public void ExtractTextWorkflow_RejectsDocumentWhenExtractionFails()
+    {
+        var useCase = new ExtractTextUseCase(new ThrowingTextExtractionService());
+        var document = Document.Accept(
+            new DocumentId("doc-18"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-18"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        var ex = Assert.Throws<InvalidOperationException>(() => useCase.Execute(document));
+
+        Assert.Equal("boom", ex.Message);
+        Assert.Equal(IngestionState.Rejected, document.State);
+        Assert.Equal(IngestionOutcome.Rejected, document.Outcome);
+        Assert.Equal("boom", document.RejectionReason?.Value);
+    }
+
     private static IngestionRequest CreateValidRequest()
     {
         return new IngestionRequest(
@@ -127,5 +217,13 @@ public class DocumentIngestionIntegrationTests
             "https://example.com/file.pdf",
             "corr-1",
             "tenant-1|upload|https://example.com/file.pdf");
+    }
+
+    private sealed class ThrowingTextExtractionService : ITextExtractionService
+    {
+        public TextExtractionResult Extract(string content, Document document)
+        {
+            throw new InvalidOperationException("boom");
+        }
     }
 }

@@ -157,4 +157,172 @@ public class DocumentTests
 
         Assert.Equal("Invalid tenant context", ex.Message);
     }
+
+    [Fact]
+    public void DocumentType_AllowsSupportedValues()
+    {
+        var documentType = new DocumentType("Pdf");
+
+        Assert.Equal("Pdf", documentType.Value);
+    }
+
+    [Fact]
+    public void DocumentType_NormalizesKnownValues()
+    {
+        var documentType = new DocumentType("docx");
+
+        Assert.Equal("Docx", documentType.Value);
+    }
+
+    [Fact]
+    public void DocumentType_ThrowsForUnsupportedValue()
+    {
+        var ex = Assert.Throws<DomainValidationException>(() => new DocumentType("Xls"));
+
+        Assert.Equal("Unsupported document type", ex.Message);
+    }
+
+    [Fact]
+    public void DocumentType_ThrowsForBlankValue()
+    {
+        var ex = Assert.Throws<DomainValidationException>(() => new DocumentType("   "));
+
+        Assert.Equal("Unsupported document type", ex.Message);
+    }
+
+    [Fact]
+    public void RecordDetectedDocumentType_SetsDetectedType()
+    {
+        var document = Document.Accept(
+            new DocumentId("doc-10"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-10"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordDetectedDocumentType(new DocumentType("Pdf"));
+
+        Assert.True(document.HasDetectedDocumentType);
+        Assert.Equal("Pdf", document.DetectedDocumentType?.Value);
+    }
+
+    [Fact]
+    public void RecordDetectedDocumentType_ThrowsWhenCalledTwice()
+    {
+        var document = Document.Accept(
+            new DocumentId("doc-11"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-11"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordDetectedDocumentType(new DocumentType("Pdf"));
+
+        var ex = Assert.Throws<InvalidOperationException>(() => document.RecordDetectedDocumentType(new DocumentType("Docx")));
+
+        Assert.Equal("Document type detection can only be recorded once.", ex.Message);
+    }
+
+    [Fact]
+    public void RecordDetectedDocumentType_ThrowsAfterDocumentIsRejected()
+    {
+        var document = Document.Reject(
+            new DocumentId("doc-12"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-12"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"),
+            new RejectionReason("Unsupported format"));
+
+        var ex = Assert.Throws<InvalidOperationException>(() => document.RecordDetectedDocumentType(new DocumentType("Pdf")));
+
+        Assert.Equal("Cannot record document type after the document has been rejected.", ex.Message);
+    }
+
+    [Fact]
+    public void RecordExtractedText_SetsRawText()
+    {
+        var document = Document.Accept(
+            new DocumentId("doc-13"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-13"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordExtractedText(new RawText("hello world"));
+
+        Assert.True(document.HasExtractedText);
+        Assert.Equal("hello world", document.ExtractedText?.Value);
+    }
+
+    [Fact]
+    public void FailExtraction_TransitionsDocumentToRejectedState()
+    {
+        var document = Document.Accept(
+            new DocumentId("doc-14"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-14"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.FailExtraction("Extraction failed");
+
+        Assert.Equal(IngestionState.Rejected, document.State);
+        Assert.Equal(IngestionOutcome.Rejected, document.Outcome);
+        Assert.Equal("Extraction failed", document.RejectionReason?.Value);
+    }
+
+    [Fact]
+    public void RecordExtractedText_ThrowsWhenTextHasAlreadyBeenRecorded()
+    {
+        var document = Document.Accept(
+            new DocumentId("doc-15"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-15"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordExtractedText(new RawText("hello"));
+
+        var ex = Assert.Throws<InvalidOperationException>(() => document.RecordExtractedText(new RawText("again")));
+
+        Assert.Equal("Extracted text can only be recorded once.", ex.Message);
+    }
+
+    [Fact]
+    public void FailExtraction_ThrowsWhenDocumentIsAlreadyRejected()
+    {
+        var document = Document.Reject(
+            new DocumentId("doc-16"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-16"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"),
+            new RejectionReason("Unsupported format"));
+
+        var ex = Assert.Throws<InvalidOperationException>(() => document.FailExtraction("Extraction failed"));
+
+        Assert.Equal("Cannot fail extraction after the document has been rejected.", ex.Message);
+    }
 }

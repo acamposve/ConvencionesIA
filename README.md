@@ -58,7 +58,7 @@ Every change should:
 The current feature implementation is covered by automated tests. The documented verification run is:
 
 - command: dotnet test Convenciones/Convenciones.slnx
-- result: 52 tests passed, 0 failed
+- result: 79 tests passed, 0 failed
 
 ## Next steps
 

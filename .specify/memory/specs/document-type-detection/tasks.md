@@ -10,7 +10,7 @@
 
 # Objective
 
-Implement the Document Type Detection feature according to the approved specification.
+Implement the Document Type Detection feature according to the current specification.
 
 Each task must be independently implementable, reviewable, and testable.
 

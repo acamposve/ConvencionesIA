@@ -35,8 +35,7 @@ public sealed class DetectDocumentTypeUseCase
 
             if (detectedType.Value.Equals("Unknown", StringComparison.OrdinalIgnoreCase))
             {
-                document.RejectForProcessingFailure(new RejectionReason("Unsupported document type"));
-                _logger?.Invoke($"DocumentTypeDetection|DocumentId={document.Id.Value}|TenantId={document.TenantId.Value}|DetectedType=Unknown|ProcessingTimeMs={(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds:0}|CorrelationId={document.CorrelationId.Value}");
+                RejectDocument(document, "Unsupported document type", startedAt);
                 throw new DomainValidationException("Unsupported document type");
             }
 
@@ -44,10 +43,20 @@ public sealed class DetectDocumentTypeUseCase
             _logger?.Invoke($"DocumentTypeDetection|DocumentId={document.Id.Value}|TenantId={document.TenantId.Value}|DetectedType={detectedType.Value}|ProcessingTimeMs={(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds:0}|CorrelationId={document.CorrelationId.Value}");
             return document;
         }
-        catch (DomainValidationException)
+        catch (DomainValidationException ex)
         {
-            _logger?.Invoke($"DocumentTypeDetection|DocumentId={document.Id.Value}|TenantId={document.TenantId.Value}|DetectedType=Unknown|ProcessingTimeMs={(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds:0}|CorrelationId={document.CorrelationId.Value}");
+            if (document.State == IngestionState.Accepted)
+            {
+                RejectDocument(document, ex.Message, startedAt);
+            }
+
             throw;
         }
+    }
+
+    private void RejectDocument(Document document, string reason, DateTimeOffset startedAt)
+    {
+        document.RejectForProcessingFailure(new RejectionReason(reason));
+        _logger?.Invoke($"DocumentTypeDetection|DocumentId={document.Id.Value}|TenantId={document.TenantId.Value}|DetectedType=Unknown|ProcessingTimeMs={(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds:0}|CorrelationId={document.CorrelationId.Value}");
     }
 }

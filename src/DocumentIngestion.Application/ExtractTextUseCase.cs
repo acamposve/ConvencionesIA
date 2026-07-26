@@ -6,7 +6,7 @@ public sealed class ExtractTextUseCase
 {
     private readonly TextExtractionServiceRouter _router;
     private readonly Action<string>? _logger;
-    private readonly DocumentIngestionEventPublisher? _eventPublisher;
+    private readonly IIngestionEventPublisher _eventPublisher;
 
     public ExtractTextUseCase(ITextExtractionService textExtractionService)
         : this(new TextExtractionServiceRouter(textExtractionService, textExtractionService, textExtractionService), null, null)
@@ -23,11 +23,11 @@ public sealed class ExtractTextUseCase
     {
     }
 
-    public ExtractTextUseCase(TextExtractionServiceRouter router, Action<string>? logger, DocumentIngestionEventPublisher? eventPublisher)
+    public ExtractTextUseCase(TextExtractionServiceRouter router, Action<string>? logger, IIngestionEventPublisher? eventPublisher)
     {
         _router = router ?? throw new ArgumentNullException(nameof(router));
         _logger = logger;
-        _eventPublisher = eventPublisher;
+        _eventPublisher = eventPublisher ?? new NullIngestionEventPublisher();
     }
 
     public Document Execute(Document document)
@@ -52,16 +52,18 @@ public sealed class ExtractTextUseCase
             var extractionContent = GetExtractionContent(document);
             var result = _router.Extract(extractionContent, document);
             document.RecordExtractedText(new RawText(result.ExtractedText));
-            _eventPublisher?.PublishTextExtracted(document, result.ExtractionStrategy, result.ExtractedText.Length);
+            _eventPublisher.PublishTextExtracted(document, result.ExtractionStrategy, result.ExtractedText.Length);
             _logger?.Invoke($"TextExtraction|DocumentId={document.Id.Value}|TenantId={document.TenantId.Value}|DocumentType={document.DetectedDocumentType?.Value ?? "Unknown"}|ExtractionStrategy={result.ExtractionStrategy}|ProcessingTimeMs={(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds:0}|TextLength={result.ExtractedText.Length}|CorrelationId={document.CorrelationId.Value}");
             return document;
         }
         catch (Exception ex)
         {
-            document.FailExtraction(ex.Message);
-            _eventPublisher?.PublishTextExtractionFailed(document, ex.Message);
+            var failureReason = "Extraction failed";
+            document.FailExtraction(failureReason);
+            _eventPublisher.PublishTextExtractionFailed(document, failureReason);
             _logger?.Invoke($"TextExtraction|DocumentId={document.Id.Value}|TenantId={document.TenantId.Value}|DocumentType={document.DetectedDocumentType?.Value ?? "Unknown"}|ExtractionStrategy=Failed|ProcessingTimeMs={(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds:0}|TextLength=0|CorrelationId={document.CorrelationId.Value}");
-            throw;
+            _logger?.Invoke($"TextExtractionFailure|DocumentId={document.Id.Value}|TenantId={document.TenantId.Value}|ErrorType={ex.GetType().Name}|CorrelationId={document.CorrelationId.Value}");
+            throw new InvalidOperationException(failureReason);
         }
     }
 
@@ -78,5 +80,20 @@ public sealed class ExtractTextUseCase
             "Tiff" or "tiff" or "image/tiff" => "TIFF",
             _ => detectedType
         };
+    }
+
+    private sealed class NullIngestionEventPublisher : IIngestionEventPublisher
+    {
+        public void Publish(Document document)
+        {
+        }
+
+        public void PublishTextExtracted(Document document, string extractionStrategy, int textLength)
+        {
+        }
+
+        public void PublishTextExtractionFailed(Document document, string reason)
+        {
+        }
     }
 }

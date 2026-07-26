@@ -109,4 +109,6 @@ public interface IDocumentRepository
 public interface IIngestionEventPublisher
 {
     void Publish(Document document);
+    void PublishTextExtracted(Document document, string extractionStrategy, int textLength);
+    void PublishTextExtractionFailed(Document document, string reason);
 }

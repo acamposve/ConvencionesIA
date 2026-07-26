@@ -22,7 +22,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ExtractTextUseCase>(sp => new ExtractTextUseCase(
             sp.GetRequiredService<TextExtractionServiceRouter>(),
             null,
-            sp.GetService<DocumentIngestionEventPublisher>()));
+            sp.GetRequiredService<IIngestionEventPublisher>()));
         services.AddTransient<IngestDocumentUseCase>();
         services.AddTransient<DocumentIngestionEndpoint>();
 

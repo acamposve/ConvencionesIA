@@ -96,10 +96,10 @@ public class TextExtractionServiceRouterTests
             new Provenance("https://example.com/file.pdf", "Example"),
             new CorrelationId("corr-63"),
             new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
-        document.RecordDetectedDocumentType(new DocumentType("Unknown"));
 
-        var ex = Assert.Throws<InvalidOperationException>(() => router.Extract("PDF", document));
+        var ex = Assert.Throws<DomainValidationException>(() => document.RecordDetectedDocumentType(new DocumentType("Unknown")));
 
-        Assert.Equal("Unsupported document type for text extraction.", ex.Message);
+        Assert.Equal("Unsupported document type", ex.Message);
+        Assert.False(document.HasDetectedDocumentType);
     }
 }

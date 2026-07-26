@@ -47,9 +47,9 @@ public class ExtractTextUseCaseTests
 
         var ex = Assert.Throws<InvalidOperationException>(() => useCase.Execute(document));
 
-        Assert.Equal("boom", ex.Message);
+        Assert.Equal("Extraction failed", ex.Message);
         Assert.Equal(IngestionState.Failed, document.State);
-        Assert.Equal("boom", document.RejectionReason?.Value);
+        Assert.Equal("Extraction failed", document.RejectionReason?.Value);
     }
 
     [Fact]
@@ -68,11 +68,11 @@ public class ExtractTextUseCaseTests
             new CorrelationId("corr-22"),
             new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
 
-        var ex = Assert.Throws<ArgumentException>(() => useCase.Execute(document));
+        var ex = Assert.Throws<InvalidOperationException>(() => useCase.Execute(document));
 
-        Assert.Equal("unexpected", ex.Message);
+        Assert.Equal("Extraction failed", ex.Message);
         Assert.Equal(IngestionState.Failed, document.State);
-        Assert.Equal("unexpected", document.RejectionReason?.Value);
+        Assert.Equal("Extraction failed", document.RejectionReason?.Value);
     }
 
     [Fact]

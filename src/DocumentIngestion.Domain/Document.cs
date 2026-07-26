@@ -172,6 +172,11 @@ public sealed class Document
             throw new InvalidOperationException("Document type detection can only be recorded once.");
         }
 
+        if (documentType.Value.Equals("Unknown", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new DomainValidationException("Unsupported document type");
+        }
+
         if (State == IngestionState.Rejected || State == IngestionState.Failed)
         {
             throw new InvalidOperationException("Cannot record document type after the document has been rejected or failed.");

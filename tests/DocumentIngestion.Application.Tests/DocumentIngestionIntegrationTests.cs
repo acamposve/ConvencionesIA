@@ -179,10 +179,10 @@ public class DocumentIngestionIntegrationTests
 
         var ex = Assert.Throws<InvalidOperationException>(() => useCase.Execute(document));
 
-        Assert.Equal("boom", ex.Message);
+        Assert.Equal("Extraction failed", ex.Message);
         Assert.Equal(IngestionState.Failed, document.State);
         Assert.Equal(IngestionOutcome.Failed, document.Outcome);
-        Assert.Equal("boom", document.RejectionReason?.Value);
+        Assert.Equal("Extraction failed", document.RejectionReason?.Value);
     }
 
     private static IngestionRequest CreateValidRequest()

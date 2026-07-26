@@ -2,7 +2,7 @@
 
 **Feature:** Document Type Detection
 
-**Status:** Draft
+**Status:** Approved
 
 **Version:** 1.0.0
 

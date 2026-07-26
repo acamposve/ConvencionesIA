@@ -63,7 +63,7 @@ public sealed class ExtractTextUseCase
             _eventPublisher.PublishTextExtractionFailed(document, failureReason);
             _logger?.Invoke($"TextExtraction|DocumentId={document.Id.Value}|TenantId={document.TenantId.Value}|DocumentType={document.DetectedDocumentType?.Value ?? "Unknown"}|ExtractionStrategy=Failed|ProcessingTimeMs={(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds:0}|TextLength=0|CorrelationId={document.CorrelationId.Value}");
             _logger?.Invoke($"TextExtractionFailure|DocumentId={document.Id.Value}|TenantId={document.TenantId.Value}|ErrorType={ex.GetType().Name}|CorrelationId={document.CorrelationId.Value}");
-            throw new InvalidOperationException(failureReason);
+            throw new InvalidOperationException(failureReason, ex);
         }
     }
 

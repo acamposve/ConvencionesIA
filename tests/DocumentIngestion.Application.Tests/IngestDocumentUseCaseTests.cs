@@ -188,6 +188,14 @@ public class IngestDocumentUseCaseTests
         public void PublishDocumentSummaryFailed(Document document, string reason)
         {
         }
+
+        public void PublishDocumentEmbeddingCompleted(Document document, IReadOnlyList<decimal> embeddingValues)
+        {
+        }
+
+        public void PublishDocumentEmbeddingFailed(Document document, string reason)
+        {
+        }
     }
 
 }

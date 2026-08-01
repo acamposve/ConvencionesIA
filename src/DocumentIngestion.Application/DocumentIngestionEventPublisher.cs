@@ -309,6 +309,56 @@ public sealed class DocumentIngestionEventPublisher : IIngestionEventPublisher
             domainEvent.Version,
             domainEvent.Timestamp));
     }
+
+    public void PublishDocumentEmbeddingCompleted(Document document, IReadOnlyList<decimal> embeddingValues)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(embeddingValues);
+
+        var domainEvent = new DocumentEmbeddingCompletedEvent(
+            document.Id.Value,
+            document.TenantId.Value,
+            embeddingValues.ToList(),
+            document.CorrelationId.Value,
+            DateTimeOffset.UtcNow,
+            "v1",
+            document.Revisions.Count);
+
+        _domainEvents.Add(domainEvent);
+
+        _auditRecords.Add(new IngestionAuditRecord(
+            document.Id.Value,
+            document.TenantId.Value,
+            document.CorrelationId.Value,
+            "DocumentEmbeddingCompleted",
+            domainEvent.Version,
+            domainEvent.Timestamp));
+    }
+
+    public void PublishDocumentEmbeddingFailed(Document document, string reason)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(reason);
+
+        var domainEvent = new DocumentEmbeddingFailedEvent(
+            document.Id.Value,
+            document.TenantId.Value,
+            reason,
+            document.CorrelationId.Value,
+            DateTimeOffset.UtcNow,
+            "v1",
+            document.Revisions.Count);
+
+        _domainEvents.Add(domainEvent);
+
+        _auditRecords.Add(new IngestionAuditRecord(
+            document.Id.Value,
+            document.TenantId.Value,
+            document.CorrelationId.Value,
+            "DocumentEmbeddingFailed",
+            domainEvent.Version,
+            domainEvent.Timestamp));
+    }
 }
 
 public sealed record DocumentIngestionCompletedEvent(
@@ -414,6 +464,24 @@ public sealed record DocumentSummaryCompletedEvent(
     int RevisionNumber);
 
 public sealed record DocumentSummaryFailedEvent(
+    string DocumentId,
+    string TenantId,
+    string Reason,
+    string CorrelationId,
+    DateTimeOffset Timestamp,
+    string Version,
+    int RevisionNumber);
+
+public sealed record DocumentEmbeddingCompletedEvent(
+    string DocumentId,
+    string TenantId,
+    IReadOnlyList<decimal> EmbeddingValues,
+    string CorrelationId,
+    DateTimeOffset Timestamp,
+    string Version,
+    int RevisionNumber);
+
+public sealed record DocumentEmbeddingFailedEvent(
     string DocumentId,
     string TenantId,
     string Reason,

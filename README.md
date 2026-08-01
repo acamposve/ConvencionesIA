@@ -39,6 +39,7 @@ The repository currently contains:
 - a comprehensive test suite covering core scenarios
 - document-classification support with domain, application, persistence, event, and test coverage
 - document-summary support with domain, application, persistence, event, and test coverage
+- document-embedding support with domain, application, persistence, event, and test coverage
 
 ## Repository layout
 
@@ -62,7 +63,7 @@ Every change should:
 The current feature implementation is covered by automated tests. The documented verification run is:
 
 - command: dotnet test .\Convenciones\Convenciones.slnx
-- result: 186 tests passed, 0 failed
+- result: 203 tests passed, 0 failed
 
 ## Next steps
 

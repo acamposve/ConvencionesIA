@@ -12,6 +12,7 @@ public sealed class ExtractTextUseCase
     private readonly CategorizeClausesUseCase? _clauseCategorizationUseCase;
     private readonly ClassifyDocumentUseCase? _classificationUseCase;
     private readonly GenerateDocumentSummaryUseCase? _summaryUseCase;
+    private readonly GenerateDocumentEmbeddingUseCase? _embeddingUseCase;
 
     public ExtractTextUseCase(ITextExtractionService textExtractionService)
         : this(new TextExtractionServiceRouter(textExtractionService, textExtractionService, textExtractionService), null, null, null, null, null, null, null)
@@ -43,7 +44,7 @@ public sealed class ExtractTextUseCase
     {
     }
 
-    public ExtractTextUseCase(TextExtractionServiceRouter router, Action<string>? logger, IIngestionEventPublisher? eventPublisher, NormalizeTextUseCase? normalizationUseCase, DetectClausesUseCase? clauseDetectionUseCase, CategorizeClausesUseCase? clauseCategorizationUseCase, ClassifyDocumentUseCase? classificationUseCase, GenerateDocumentSummaryUseCase? summaryUseCase = null)
+    public ExtractTextUseCase(TextExtractionServiceRouter router, Action<string>? logger, IIngestionEventPublisher? eventPublisher, NormalizeTextUseCase? normalizationUseCase, DetectClausesUseCase? clauseDetectionUseCase, CategorizeClausesUseCase? clauseCategorizationUseCase, ClassifyDocumentUseCase? classificationUseCase, GenerateDocumentSummaryUseCase? summaryUseCase = null, GenerateDocumentEmbeddingUseCase? embeddingUseCase = null)
     {
         _router = router ?? throw new ArgumentNullException(nameof(router));
         _logger = logger;
@@ -53,6 +54,7 @@ public sealed class ExtractTextUseCase
         _clauseCategorizationUseCase = clauseCategorizationUseCase;
         _classificationUseCase = classificationUseCase;
         _summaryUseCase = summaryUseCase;
+        _embeddingUseCase = embeddingUseCase;
     }
 
     public Document Execute(Document document)
@@ -103,6 +105,11 @@ public sealed class ExtractTextUseCase
             if (_summaryUseCase is not null && (document.HasExtractedText || document.HasNormalizedText || document.HasClauses || document.HasDocumentClassification))
             {
                 _summaryUseCase.Execute(document);
+            }
+
+            if (_embeddingUseCase is not null && (document.HasExtractedText || document.HasNormalizedText || document.HasClauses || document.HasDocumentClassification || document.HasDocumentSummary))
+            {
+                _embeddingUseCase.Execute(document);
             }
 
             return document;
@@ -188,6 +195,14 @@ public sealed class ExtractTextUseCase
         }
 
         public void PublishDocumentSummaryFailed(Document document, string reason)
+        {
+        }
+
+        public void PublishDocumentEmbeddingCompleted(Document document, IReadOnlyList<decimal> embeddingValues)
+        {
+        }
+
+        public void PublishDocumentEmbeddingFailed(Document document, string reason)
         {
         }
     }

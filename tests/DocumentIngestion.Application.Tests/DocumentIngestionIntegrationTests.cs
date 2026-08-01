@@ -487,6 +487,62 @@ public class DocumentIngestionIntegrationTests
         Assert.Equal(3, document.Revisions.Count);
     }
 
+    [Fact]
+    public void EmbeddingWorkflow_PersistsEmbeddingAndPublishesCompletionEvent()
+    {
+        var repository = new InMemoryDocumentRepository();
+        var publisher = new DocumentIngestionEventPublisher();
+        var useCase = new GenerateDocumentEmbeddingUseCase(null, publisher);
+        var document = Document.Accept(
+            new DocumentId("doc-43"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-43"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordExtractedText(new RawText("This is a contract."));
+        document.RecordDocumentClassification(DocumentClassificationResult.Create(
+            new DocumentClassificationCode("NDA"),
+            new ConfidenceScore(0.92m)));
+        repository.Save(document);
+
+        var result = useCase.Execute(document);
+        repository.Save(result);
+
+        var persisted = repository.GetById("doc-43");
+
+        Assert.Same(document, result);
+        Assert.True(persisted!.HasDocumentEmbedding);
+        Assert.Equal([5m, 3m, 2m, 3m, 4m], persisted.DocumentEmbedding!.EmbeddingVector.Values);
+        Assert.Contains(publisher.AuditRecords, record => record.EventName == "DocumentEmbeddingCompleted");
+    }
+
+    [Fact]
+    public void EmbeddingWorkflow_FailsDocumentAndPublishesFailureEventWhenEvidenceMissing()
+    {
+        var publisher = new DocumentIngestionEventPublisher();
+        var useCase = new GenerateDocumentEmbeddingUseCase(null, publisher);
+        var document = Document.Accept(
+            new DocumentId("doc-44"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-44"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        var ex = Assert.Throws<InvalidOperationException>(() => useCase.Execute(document));
+
+        Assert.Equal("Document embedding failed", ex.Message);
+        Assert.Equal(IngestionState.Failed, document.State);
+        Assert.Equal(IngestionOutcome.Failed, document.Outcome);
+        Assert.Contains(publisher.AuditRecords, record => record.EventName == "DocumentEmbeddingFailed");
+    }
+
     private static IngestionRequest CreateValidRequest()
     {
         return new IngestionRequest(

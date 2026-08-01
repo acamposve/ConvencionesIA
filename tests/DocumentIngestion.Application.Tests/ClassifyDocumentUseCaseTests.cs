@@ -74,5 +74,7 @@ public class ClassifyDocumentUseCaseTests
         public void PublishDocumentClassificationFailed(Document document, string reason) { FailedCount++; }
         public void PublishDocumentSummaryCompleted(Document document, string summaryText) { }
         public void PublishDocumentSummaryFailed(Document document, string reason) { }
+        public void PublishDocumentEmbeddingCompleted(Document document, IReadOnlyList<decimal> embeddingValues) { }
+        public void PublishDocumentEmbeddingFailed(Document document, string reason) { }
     }
 }

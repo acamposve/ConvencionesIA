@@ -164,6 +164,39 @@ public class ExtractTextUseCaseTests
     }
 
     [Fact]
+    public void Execute_GeneratesEmbeddingAfterSuccessfulExtraction()
+    {
+        var extractionService = new TestTextExtractionService("hello world", "Pdf");
+        var embeddingUseCase = new GenerateDocumentEmbeddingUseCase();
+        var useCase = new ExtractTextUseCase(
+            new TextExtractionServiceRouter(extractionService, extractionService, extractionService),
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            embeddingUseCase);
+
+        var document = Document.Accept(
+            new DocumentId("doc-29b"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-29b"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        var result = useCase.Execute(document);
+
+        Assert.Same(document, result);
+        Assert.True(result.HasDocumentEmbedding);
+        Assert.NotEmpty(result.DocumentEmbedding!.EmbeddingVector.Values);
+    }
+
+    [Fact]
     public void Execute_DetectsClausesAfterSuccessfulNormalization()
     {
         var extractionService = new TestTextExtractionService("1. First clause. 2. Second clause.", "Pdf");

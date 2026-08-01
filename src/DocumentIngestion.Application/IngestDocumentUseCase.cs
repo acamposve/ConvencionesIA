@@ -148,4 +148,6 @@ public interface IIngestionEventPublisher
     void PublishDocumentClassificationFailed(Document document, string reason);
     void PublishDocumentSummaryCompleted(Document document, string summaryText);
     void PublishDocumentSummaryFailed(Document document, string reason);
+    void PublishDocumentEmbeddingCompleted(Document document, IReadOnlyList<decimal> embeddingValues);
+    void PublishDocumentEmbeddingFailed(Document document, string reason);
 }

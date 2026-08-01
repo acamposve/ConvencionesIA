@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Document Ingestion feature now provides a domain-driven ingestion workflow for accepting or rejecting document submissions within tenant boundaries. The implementation covers the domain model, application workflow, endpoint contract, repository persistence abstraction, event publication, security enforcement, and a full test suite. It also includes a text-extraction capability that stores extracted content as RawText, a clause-detection stage that extracts ordered clauses from normalized text, a clause-categorization stage that assigns deterministic category labels and confidence scores to detected clauses, a document-classification stage that assigns a primary business classification with confidence and emits success or failure events, and a document-summary stage that records a primary summary and publishes success or failure business events.
+The Document Ingestion feature now provides a domain-driven ingestion workflow for accepting or rejecting document submissions within tenant boundaries. The implementation covers the domain model, application workflow, endpoint contract, repository persistence abstraction, event publication, security enforcement, and a full test suite. It also includes a text-extraction capability that stores extracted content as RawText, a clause-detection stage that extracts ordered clauses from normalized text, a clause-categorization stage that assigns deterministic category labels and confidence scores to detected clauses, a document-classification stage that assigns a primary business classification with confidence and emits success or failure events, a document-summary stage that records a primary summary and publishes success or failure business events, and a document-embedding stage that records a deterministic embedding vector from approved evidence and publishes success or failure business events.
 
 The current implementation uses tenant-aware authorization based on the authenticated caller context, applies repository-level atomic idempotency semantics to suppress duplicate accepted ingestions, and supports contract-driven persistence with both in-memory and file-system repository implementations.
 
@@ -34,7 +34,12 @@ The current implementation includes:
 - A clause-categorization workflow that records category assignments and publishes completion or failure events for the clause pipeline
 - A document-classification workflow that records a primary classification and confidence score, persists the classification with the document aggregate, and publishes versioned completion or failure events
 - A document-summary workflow that records a primary summary, persists the summary with the document aggregate, and publishes versioned completion or failure events
+- A document-embedding workflow that uses approved processing evidence to generate a deterministic embedding vector, persists the embedding payload with the document aggregate, and publishes versioned completion or failure events for downstream semantic workflows
 - Tenant and authentication enforcement at the endpoint boundary, using the authenticated caller tenant as the authoritative tenant context
+
+## Embedding Workflow Notes
+
+Embedding generation is treated as an additional stage in the ingestion pipeline. It executes once the document has sufficient upstream evidence available, such as extracted text, normalized text, classification, or summary data, and it uses the same tenant and correlation context as the rest of the workflow. The generated vector is persisted on the document aggregate and exposed through the versioned events DocumentEmbeddingCompleted and DocumentEmbeddingFailed so downstream semantic-search or retrieval experiences can consume the result without relying on raw document content.
 
 ## Security and Multi-Tenant Considerations
 
@@ -58,7 +63,7 @@ The feature is covered by:
 Verification evidence:
 
 - Command executed: dotnet test .\Convenciones\Convenciones.slnx
-- Result: 186 tests passed, 0 failed
+- Result: 203 tests passed, 0 failed
 
 ## Rollout Readiness Review
 

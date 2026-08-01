@@ -163,6 +163,12 @@ public sealed class FileSystemDocumentRepository : IDocumentRepository
                 : new List<DocumentSummaryPersistenceContract>
                 {
                     new(document.DocumentSummary.SummaryText.Value)
+                },
+            document.DocumentEmbedding is null
+                ? null
+                : new List<DocumentEmbeddingPersistenceContract>
+                {
+                    new(document.DocumentEmbedding.EmbeddingVector.Values.ToList())
                 });
     }
 
@@ -245,6 +251,14 @@ public sealed class FileSystemDocumentRepository : IDocumentRepository
                 new SummaryText(summary.SummaryText));
         }
 
+        DocumentEmbeddingResult? documentEmbedding = null;
+        if (contract.DocumentEmbeddings is { Count: > 0 })
+        {
+            var embedding = contract.DocumentEmbeddings[0];
+            documentEmbedding = DocumentEmbeddingResult.Create(
+                new EmbeddingVector(embedding.EmbeddingValues.ToList()));
+        }
+
         var document = Document.Rehydrate(
             documentId,
             tenantId,
@@ -265,7 +279,8 @@ public sealed class FileSystemDocumentRepository : IDocumentRepository
             clauses,
             categoryAssignments,
             documentClassification,
-            documentSummary);
+            documentSummary,
+            documentEmbedding);
 
         return document;
     }

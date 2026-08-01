@@ -343,4 +343,62 @@ public class DocumentIngestionEventPublisherTests
         Assert.Equal("boom", failedEvent.Reason);
         Assert.Equal(2, failedEvent.RevisionNumber);
     }
+
+    [Fact]
+    public void PublishDocumentEmbeddingCompleted_CreatesAuditRecordWithRevisionAndEmbeddingPayload()
+    {
+        var publisher = new DocumentIngestionEventPublisher();
+        var document = Document.Accept(
+            new DocumentId("doc-15"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-15"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordDocumentEmbedding(DocumentEmbeddingResult.Create(new EmbeddingVector([0.1m, 0.2m, 0.3m])));
+
+        publisher.PublishDocumentEmbeddingCompleted(document, new[] { 0.1m, 0.2m, 0.3m });
+
+        Assert.Single(publisher.AuditRecords);
+        Assert.Equal("DocumentEmbeddingCompleted", publisher.AuditRecords[0].EventName);
+        Assert.Equal("v1", publisher.AuditRecords[0].EventVersion);
+        Assert.Equal("tenant-1", publisher.AuditRecords[0].TenantId);
+        Assert.Equal("corr-15", publisher.AuditRecords[0].CorrelationId);
+
+        var completedEvent = Assert.IsType<DocumentEmbeddingCompletedEvent>(Assert.Single(publisher.DomainEvents));
+        Assert.Equal(new[] { 0.1m, 0.2m, 0.3m }, completedEvent.EmbeddingValues);
+        Assert.Equal(2, completedEvent.RevisionNumber);
+    }
+
+    [Fact]
+    public void PublishDocumentEmbeddingFailed_CreatesAuditRecordWithRevisionAndFailureReason()
+    {
+        var publisher = new DocumentIngestionEventPublisher();
+        var document = Document.Accept(
+            new DocumentId("doc-16"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-16"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.FailDocumentEmbedding("boom");
+
+        publisher.PublishDocumentEmbeddingFailed(document, "boom");
+
+        Assert.Single(publisher.AuditRecords);
+        Assert.Equal("DocumentEmbeddingFailed", publisher.AuditRecords[0].EventName);
+        Assert.Equal("v1", publisher.AuditRecords[0].EventVersion);
+        Assert.Equal("tenant-1", publisher.AuditRecords[0].TenantId);
+        Assert.Equal("corr-16", publisher.AuditRecords[0].CorrelationId);
+
+        var failedEvent = Assert.IsType<DocumentEmbeddingFailedEvent>(Assert.Single(publisher.DomainEvents));
+        Assert.Equal("boom", failedEvent.Reason);
+        Assert.Equal(2, failedEvent.RevisionNumber);
+    }
 }

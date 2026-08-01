@@ -178,4 +178,32 @@ public class DocumentIngestionContractTests
         Assert.Equal("v1", domainEvent.Version);
         Assert.Equal(2, domainEvent.RevisionNumber);
     }
+
+    [Fact]
+    public void DocumentEmbeddingCompletedEventContract_ContainsEmbeddingPayloadAndRevisionContext()
+    {
+        var timestamp = new DateTimeOffset(2024, 1, 2, 3, 4, 5, TimeSpan.Zero);
+        var domainEvent = new DocumentEmbeddingCompletedEvent("doc-1", "tenant-1", new[] { 0.1m, 0.2m, 0.3m }, "corr-1", timestamp, "v1", 2);
+
+        Assert.Equal("doc-1", domainEvent.DocumentId);
+        Assert.Equal("tenant-1", domainEvent.TenantId);
+        Assert.Equal([0.1m, 0.2m, 0.3m], domainEvent.EmbeddingValues);
+        Assert.Equal("corr-1", domainEvent.CorrelationId);
+        Assert.Equal("v1", domainEvent.Version);
+        Assert.Equal(2, domainEvent.RevisionNumber);
+    }
+
+    [Fact]
+    public void DocumentEmbeddingFailedEventContract_ContainsFailureReasonAndCorrelationContext()
+    {
+        var timestamp = new DateTimeOffset(2024, 1, 2, 3, 4, 5, TimeSpan.Zero);
+        var domainEvent = new DocumentEmbeddingFailedEvent("doc-1", "tenant-1", "boom", "corr-1", timestamp, "v1", 2);
+
+        Assert.Equal("doc-1", domainEvent.DocumentId);
+        Assert.Equal("tenant-1", domainEvent.TenantId);
+        Assert.Equal("boom", domainEvent.Reason);
+        Assert.Equal("corr-1", domainEvent.CorrelationId);
+        Assert.Equal("v1", domainEvent.Version);
+        Assert.Equal(2, domainEvent.RevisionNumber);
+    }
 }

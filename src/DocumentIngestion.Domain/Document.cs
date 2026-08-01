@@ -9,6 +9,7 @@ public sealed class Document
     private readonly List<ClauseCategoryAssignment> _categoryAssignments = [];
     private DocumentClassificationResult? _documentClassification;
     private DocumentSummaryResult? _documentSummary;
+    private DocumentEmbeddingResult? _documentEmbedding;
 
     public Document(
         DocumentId id,
@@ -59,6 +60,7 @@ public sealed class Document
     public IReadOnlyList<ClauseCategoryAssignment> CategoryAssignments => _categoryAssignments.AsReadOnly();
     public DocumentClassificationResult? DocumentClassification => _documentClassification;
     public DocumentSummaryResult? DocumentSummary => _documentSummary;
+    public DocumentEmbeddingResult? DocumentEmbedding => _documentEmbedding;
     public bool HasDetectedDocumentType => DetectedDocumentType is not null;
     public bool HasExtractedText => ExtractedText is not null;
     public bool HasNormalizedText => NormalizedText is not null;
@@ -66,6 +68,7 @@ public sealed class Document
     public bool HasCategoryAssignments => _categoryAssignments.Count > 0;
     public bool HasDocumentClassification => _documentClassification is not null;
     public bool HasDocumentSummary => _documentSummary is not null;
+    public bool HasDocumentEmbedding => _documentEmbedding is not null;
     public IReadOnlyList<DocumentRevision> Revisions => _revisions.AsReadOnly();
 
     public static Document Accept(
@@ -134,7 +137,8 @@ public sealed class Document
         IReadOnlyList<Clause>? clauses = null,
         IReadOnlyList<ClauseCategoryAssignment>? categoryAssignments = null,
         DocumentClassificationResult? documentClassification = null,
-        DocumentSummaryResult? documentSummary = null)
+        DocumentSummaryResult? documentSummary = null,
+        DocumentEmbeddingResult? documentEmbedding = null)
     {
         ArgumentNullException.ThrowIfNull(id);
         ArgumentNullException.ThrowIfNull(tenantId);
@@ -180,6 +184,11 @@ public sealed class Document
         if (documentSummary is not null)
         {
             document.RestoreDocumentSummary(documentSummary);
+        }
+
+        if (documentEmbedding is not null)
+        {
+            document.RestoreDocumentEmbedding(documentEmbedding);
         }
 
         return document;
@@ -573,6 +582,12 @@ public sealed class Document
         _documentSummary = result;
     }
 
+    private void RestoreDocumentEmbedding(DocumentEmbeddingResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        _documentEmbedding = result;
+    }
+
     public void FailDocumentClassification(string reason)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
@@ -615,6 +630,41 @@ public sealed class Document
         if (State == IngestionState.Rejected || State == IngestionState.Failed)
         {
             throw new InvalidOperationException("Cannot fail document summary after the document has been rejected or failed.");
+        }
+
+        State = IngestionState.Failed;
+        ProcessingStage = ProcessingStage.None;
+        Outcome = IngestionOutcome.Failed;
+        RejectionReason = new RejectionReason(reason);
+        _revisions.Add(new DocumentRevision(_revisions.Count + 1, DateTimeOffset.UtcNow, IngestionOutcome.Failed, ProcessingStage.None));
+    }
+
+    public void RecordDocumentEmbedding(DocumentEmbeddingResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+
+        if (State == IngestionState.Rejected || State == IngestionState.Failed)
+        {
+            throw new InvalidOperationException("Cannot record document embedding after the document has been rejected or failed.");
+        }
+
+        if (HasDocumentEmbedding)
+        {
+            throw new InvalidOperationException("Document embedding can only be recorded once.");
+        }
+
+        _documentEmbedding = result;
+        ProcessingStage = ProcessingStage.DocumentEmbedded;
+        _revisions.Add(new DocumentRevision(_revisions.Count + 1, DateTimeOffset.UtcNow, IngestionOutcome.Accepted, ProcessingStage));
+    }
+
+    public void FailDocumentEmbedding(string reason)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+
+        if (State == IngestionState.Rejected || State == IngestionState.Failed)
+        {
+            throw new InvalidOperationException("Cannot fail document embedding after the document has been rejected or failed.");
         }
 
         State = IngestionState.Failed;

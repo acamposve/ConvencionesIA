@@ -108,5 +108,7 @@ public sealed class GenerateDocumentSummaryUseCase
         public void PublishDocumentClassificationFailed(Document document, string reason) { }
         public void PublishDocumentSummaryCompleted(Document document, string summaryText) { }
         public void PublishDocumentSummaryFailed(Document document, string reason) { }
+        public void PublishDocumentEmbeddingCompleted(Document document, IReadOnlyList<decimal> embeddingValues) { }
+        public void PublishDocumentEmbeddingFailed(Document document, string reason) { }
     }
 }

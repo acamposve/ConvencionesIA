@@ -172,6 +172,14 @@ public class IngestDocumentUseCaseTests
         public void PublishClauseCategorizationFailed(Document document, string reason)
         {
         }
+
+        public void PublishDocumentClassificationCompleted(Document document, string classificationCode, decimal confidenceScore)
+        {
+        }
+
+        public void PublishDocumentClassificationFailed(Document document, string reason)
+        {
+        }
     }
 
 }

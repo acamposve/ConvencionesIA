@@ -5,8 +5,10 @@ namespace DocumentIngestion.Application;
 public sealed class DocumentIngestionEventPublisher : IIngestionEventPublisher
 {
     private readonly List<IngestionAuditRecord> _auditRecords = [];
+    private readonly List<object> _domainEvents = [];
 
     public IReadOnlyList<IngestionAuditRecord> AuditRecords => _auditRecords.AsReadOnly();
+    public IReadOnlyList<object> DomainEvents => _domainEvents.AsReadOnly();
 
     public void Publish(Document document)
     {
@@ -207,6 +209,56 @@ public sealed class DocumentIngestionEventPublisher : IIngestionEventPublisher
             domainEvent.Version,
             domainEvent.Timestamp));
     }
+
+    public void PublishDocumentClassificationCompleted(Document document, string classificationCode, decimal confidenceScore)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var domainEvent = new DocumentClassificationCompletedEvent(
+            document.Id.Value,
+            document.TenantId.Value,
+            classificationCode,
+            confidenceScore,
+            document.CorrelationId.Value,
+            DateTimeOffset.UtcNow,
+            "v1",
+            document.Revisions.Count);
+
+        _domainEvents.Add(domainEvent);
+
+        _auditRecords.Add(new IngestionAuditRecord(
+            document.Id.Value,
+            document.TenantId.Value,
+            document.CorrelationId.Value,
+            "DocumentClassificationCompleted",
+            domainEvent.Version,
+            domainEvent.Timestamp));
+    }
+
+    public void PublishDocumentClassificationFailed(Document document, string reason)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(reason);
+
+        var domainEvent = new DocumentClassificationFailedEvent(
+            document.Id.Value,
+            document.TenantId.Value,
+            reason,
+            document.CorrelationId.Value,
+            DateTimeOffset.UtcNow,
+            "v1",
+            document.Revisions.Count);
+
+        _domainEvents.Add(domainEvent);
+
+        _auditRecords.Add(new IngestionAuditRecord(
+            document.Id.Value,
+            document.TenantId.Value,
+            document.CorrelationId.Value,
+            "DocumentClassificationFailed",
+            domainEvent.Version,
+            domainEvent.Timestamp));
+    }
 }
 
 public sealed record DocumentIngestionCompletedEvent(
@@ -282,6 +334,25 @@ public sealed record ClauseCategorizationFailedEvent(
     string CorrelationId,
     DateTimeOffset Timestamp,
     string Version);
+
+public sealed record DocumentClassificationCompletedEvent(
+    string DocumentId,
+    string TenantId,
+    string ClassificationCode,
+    decimal ConfidenceScore,
+    string CorrelationId,
+    DateTimeOffset Timestamp,
+    string Version,
+    int RevisionNumber);
+
+public sealed record DocumentClassificationFailedEvent(
+    string DocumentId,
+    string TenantId,
+    string Reason,
+    string CorrelationId,
+    DateTimeOffset Timestamp,
+    string Version,
+    int RevisionNumber);
 
 public sealed record IngestionAuditRecord(
     string DocumentId,

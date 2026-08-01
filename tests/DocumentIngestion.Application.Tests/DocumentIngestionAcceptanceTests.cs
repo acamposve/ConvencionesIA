@@ -187,7 +187,8 @@ public class DocumentIngestionAcceptanceTests
             publisher,
             normalizationUseCase,
             detectionUseCase,
-            categorizationUseCase);
+            categorizationUseCase,
+            null);
         var document = Document.Accept(
             new DocumentId("doc-41"),
             new TenantId("tenant-1"),
@@ -210,6 +211,107 @@ public class DocumentIngestionAcceptanceTests
         Assert.Equal("Obligation", persisted.CategoryAssignments[0].CategoryCode.Value);
         Assert.Contains(publisher.AuditRecords, record => record.EventName == "ClauseDetectionCompleted");
         Assert.Contains(publisher.AuditRecords, record => record.EventName == "ClauseCategorizationCompleted");
+    }
+
+    [Fact]
+    public void DocumentClassificationWorkflow_AssignsClassificationWhenEvidenceIsPresent()
+    {
+        var repository = new InMemoryDocumentRepository();
+        var publisher = new DocumentIngestionEventPublisher();
+        var classificationUseCase = new ClassifyDocumentUseCase(null, null, publisher);
+        var document = Document.Accept(
+            new DocumentId("doc-42"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-42"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordExtractedText(new RawText("This is a contract."));
+        document.RecordNormalizedText(new NormalizedText("This is a contract."));
+        document.RecordDetectedClauses([
+            Clause.Create(
+                new ClauseId("clause-42"),
+                1,
+                new ClauseText("This is a clause."),
+                new ClauseSpan(0, 18))]);
+        repository.Save(document);
+
+        var result = classificationUseCase.Execute(document);
+        repository.Save(result);
+
+        var persisted = repository.GetById("doc-42");
+
+        Assert.Same(document, result);
+        Assert.NotNull(persisted);
+        Assert.True(persisted!.HasDocumentClassification);
+        Assert.Equal("NDA", persisted.DocumentClassification!.ClassificationCode.Value);
+        Assert.Equal(0.92m, persisted.DocumentClassification.ConfidenceScore.Value);
+        Assert.Contains(publisher.AuditRecords, record => record.EventName == "DocumentClassificationCompleted");
+    }
+
+    [Fact]
+    public void DocumentClassificationWorkflow_FailsAndPersistsFailureWhenEvidenceIsMissing()
+    {
+        var repository = new InMemoryDocumentRepository();
+        var publisher = new DocumentIngestionEventPublisher();
+        var classificationUseCase = new ClassifyDocumentUseCase(null, null, publisher);
+        var document = Document.Accept(
+            new DocumentId("doc-43"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-43"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        repository.Save(document);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => classificationUseCase.Execute(document));
+
+        Assert.Equal("Document classification failed", ex.Message);
+        Assert.Equal(IngestionState.Failed, document.State);
+        Assert.Contains(publisher.AuditRecords, record => record.EventName == "DocumentClassificationFailed");
+        Assert.NotNull(repository.GetById("doc-43"));
+    }
+
+    [Fact]
+    public void DocumentClassificationWorkflow_IsDeterministicAcrossReruns()
+    {
+        var repository = new InMemoryDocumentRepository();
+        var publisher = new DocumentIngestionEventPublisher();
+        var classificationUseCase = new ClassifyDocumentUseCase(null, null, publisher);
+        var document = Document.Accept(
+            new DocumentId("doc-44"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-44"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordExtractedText(new RawText("This is a contract."));
+        document.RecordNormalizedText(new NormalizedText("This is a contract."));
+        document.RecordDetectedClauses([
+            Clause.Create(
+                new ClauseId("clause-44"),
+                1,
+                new ClauseText("This is a clause."),
+                new ClauseSpan(0, 18))]);
+        repository.Save(document);
+
+        var firstResult = classificationUseCase.Execute(document);
+        repository.Save(firstResult);
+        var secondResult = classificationUseCase.Execute(firstResult);
+
+        Assert.Same(document, firstResult);
+        Assert.Same(document, secondResult);
+        Assert.Equal("NDA", document.DocumentClassification!.ClassificationCode.Value);
+        Assert.Equal(3, document.Revisions.Count);
     }
 
     private sealed class StubTextExtractionService : ITextExtractionService

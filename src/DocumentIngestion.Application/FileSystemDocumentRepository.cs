@@ -151,7 +151,13 @@ public sealed class FileSystemDocumentRepository : IDocumentRepository
                     assignment.ClauseId.Value,
                     assignment.CategoryCode.Value,
                     assignment.ConfidenceScore.Value))
-                .ToList());
+                .ToList(),
+            document.DocumentClassification is null
+                ? null
+                : new List<DocumentClassificationPersistenceContract>
+                {
+                    new(document.DocumentClassification.ClassificationCode.Value, document.DocumentClassification.ConfidenceScore.Value)
+                });
     }
 
     private static Document? DeserializeDocument(string payload)
@@ -216,7 +222,16 @@ public sealed class FileSystemDocumentRepository : IDocumentRepository
                 new ConfidenceScore(assignment.ConfidenceScore)))
             .ToList();
 
-        return Document.Rehydrate(
+        DocumentClassificationResult? documentClassification = null;
+        if (contract.DocumentClassifications is { Count: > 0 })
+        {
+            var classification = contract.DocumentClassifications[0];
+            documentClassification = DocumentClassificationResult.Create(
+                new DocumentClassificationCode(classification.ClassificationCode),
+                new ConfidenceScore(classification.ConfidenceScore));
+        }
+
+        var document = Document.Rehydrate(
             documentId,
             tenantId,
             source,
@@ -234,7 +249,10 @@ public sealed class FileSystemDocumentRepository : IDocumentRepository
             normalizedText,
             revisions,
             clauses,
-            categoryAssignments);
+            categoryAssignments,
+            documentClassification);
+
+        return document;
     }
 
     private static Document FromLegacyContract(LegacyDocumentPersistenceContract legacyContract)

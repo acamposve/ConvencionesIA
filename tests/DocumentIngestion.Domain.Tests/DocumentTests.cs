@@ -325,4 +325,169 @@ public class DocumentTests
 
         Assert.Equal("Cannot fail extraction after the document has been rejected or failed.", ex.Message);
     }
+
+    [Fact]
+    public void RecordNormalizedText_SetsNormalizedText()
+    {
+        var document = Document.Accept(
+            new DocumentId("doc-17"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-17"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordExtractedText(new RawText("hello world"));
+        document.RecordNormalizedText(new NormalizedText("hello world"));
+
+        Assert.True(document.HasNormalizedText);
+        Assert.Equal("hello world", document.NormalizedText?.Value);
+    }
+
+    [Fact]
+    public void RecordNormalizedText_ThrowsWhenExtractedTextIsMissing()
+    {
+        var document = Document.Accept(
+            new DocumentId("doc-18"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-18"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        var ex = Assert.Throws<InvalidOperationException>(() => document.RecordNormalizedText(new NormalizedText("hello world")));
+
+        Assert.Equal("Cannot record normalized text before extracted text is available.", ex.Message);
+    }
+
+    [Fact]
+    public void RecordNormalizedText_ThrowsWhenTextHasAlreadyBeenRecorded()
+    {
+        var document = Document.Accept(
+            new DocumentId("doc-19"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-19"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordExtractedText(new RawText("hello"));
+        document.RecordNormalizedText(new NormalizedText("hello"));
+
+        var ex = Assert.Throws<InvalidOperationException>(() => document.RecordNormalizedText(new NormalizedText("again")));
+
+        Assert.Equal("Normalized text can only be recorded once.", ex.Message);
+    }
+
+    [Fact]
+    public void RecordNormalizedText_PreservesOriginalExtractedText()
+    {
+        var document = Document.Accept(
+            new DocumentId("doc-20"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-20"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordExtractedText(new RawText("original OCR text"));
+        document.RecordNormalizedText(new NormalizedText("normalized OCR text"));
+
+        Assert.Equal("original OCR text", document.ExtractedText?.Value);
+        Assert.Equal("normalized OCR text", document.NormalizedText?.Value);
+    }
+
+    [Fact]
+    public void RecordDetectedClauses_TransitionsDocumentToClausesDetectedStage()
+    {
+        var document = Document.Accept(
+            new DocumentId("doc-21"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-21"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordExtractedText(new RawText("Clause one. Clause two."));
+        document.RecordNormalizedText(new NormalizedText("Clause one. Clause two."));
+
+        var clauses = new[]
+        {
+            Clause.Create(
+                ClauseId.CreateDeterministic("doc-21", 1, 1),
+                1,
+                new ClauseText("Clause one."),
+                new ClauseSpan(0, 12))
+        };
+
+        document.RecordDetectedClauses(clauses);
+
+        Assert.True(document.HasClauses);
+        Assert.Equal(ProcessingStage.ClausesDetected, document.ProcessingStage);
+        Assert.Equal(IngestionState.Accepted, document.State);
+        Assert.Equal(IngestionOutcome.Accepted, document.Outcome);
+        Assert.NotNull(document.Clauses.Single());
+    }
+
+    [Fact]
+    public void FailClauseDetection_TransitionsDocumentToFailedState()
+    {
+        var document = Document.Accept(
+            new DocumentId("doc-22"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-22"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordExtractedText(new RawText("Clause one."));
+        document.RecordNormalizedText(new NormalizedText("Clause one."));
+        document.FailClauseDetection("Clause detection failed");
+
+        Assert.Equal(IngestionState.Failed, document.State);
+        Assert.Equal(ProcessingStage.None, document.ProcessingStage);
+        Assert.Equal(IngestionOutcome.Failed, document.Outcome);
+        Assert.Equal("Clause detection failed", document.RejectionReason?.Value);
+    }
+
+    [Fact]
+    public void RecordDetectedClauses_ThrowsWhenClausesAreAlreadyRecorded()
+    {
+        var document = Document.Accept(
+            new DocumentId("doc-23"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-23"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordExtractedText(new RawText("Clause one."));
+        document.RecordNormalizedText(new NormalizedText("Clause one."));
+        document.RecordDetectedClauses(new[]
+        {
+            Clause.Create(
+                ClauseId.CreateDeterministic("doc-23", 1, 1),
+                1,
+                new ClauseText("Clause one."),
+                new ClauseSpan(0, 12))
+        });
+
+        var ex = Assert.Throws<DomainValidationException>(() => document.RecordDetectedClauses(Array.Empty<Clause>()));
+
+        Assert.Equal("At least one clause is required.", ex.Message);
+    }
 }

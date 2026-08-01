@@ -1,9 +1,11 @@
 using DocumentIngestion.Domain;
+using System.Collections.Concurrent;
 
 namespace DocumentIngestion.Application;
 
 public sealed class IngestDocumentUseCase
 {
+    private static readonly ConcurrentDictionary<string, object> IdempotencyLocks = new(StringComparer.OrdinalIgnoreCase);
     private readonly IDocumentRepository _repository;
     private readonly IIngestionEventPublisher _eventPublisher;
     private readonly DocumentIngestionService _domainService;
@@ -31,49 +33,69 @@ public sealed class IngestDocumentUseCase
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        try
+        var idempotencyKey = new IdempotencyKey(request.IdempotencyKey);
+        var lockKey = BuildLockKey(request.TenantId, idempotencyKey.Value);
+        var sync = IdempotencyLocks.GetOrAdd(lockKey, static _ => new object());
+
+        lock (sync)
         {
-            var idempotencyKey = new IdempotencyKey(request.IdempotencyKey);
-            var existing = GetExistingAcceptedDocument(request.TenantId, idempotencyKey);
-            if (existing is not null)
+            try
             {
-                _logger?.Invoke($"Duplicate accepted ingestion suppressed for idempotency key {idempotencyKey.Value}.");
-                return new IngestionResult(existing.Id.Value, existing.ProcessingStage.ToString(), existing.State.ToString());
+                var existing = GetExistingAcceptedDocument(request.TenantId, idempotencyKey);
+                if (existing is not null)
+                {
+                    _logger?.Invoke($"Duplicate accepted ingestion suppressed for idempotency key {idempotencyKey.Value}.");
+                    return new IngestionResult(existing.Id.Value, existing.ProcessingStage.ToString(), existing.State.ToString());
+                }
+
+                var document = _domainService.EvaluateAcceptance(
+                    new DocumentId(Guid.NewGuid().ToString("N")),
+                    new TenantId(request.TenantId),
+                    new DocumentSource(request.Source),
+                    new DocumentFormat(request.Format),
+                    new DocumentMetadata(request.FileSizeBytes, request.MimeType, request.Language, request.PageCount, request.Author, request.CreationDate),
+                    new Provenance(request.SourceReference),
+                    new CorrelationId(request.CorrelationId),
+                    idempotencyKey);
+
+                if (!_repository.TryCreate(document))
+                {
+                    var createdExisting = _repository.GetByTenantAndIdempotencyKey(request.TenantId, idempotencyKey.Value);
+                    if (createdExisting is not null)
+                    {
+                        _logger?.Invoke($"Duplicate accepted ingestion suppressed for idempotency key {idempotencyKey.Value}.");
+                        return new IngestionResult(createdExisting.Id.Value, createdExisting.ProcessingStage.ToString(), createdExisting.State.ToString());
+                    }
+                }
+
+                _eventPublisher.Publish(document);
+                _logger?.Invoke($"Ingestion accepted for correlation {request.CorrelationId}.");
+
+                return new IngestionResult(document.Id.Value, document.ProcessingStage.ToString(), document.State.ToString());
             }
+            catch (DomainValidationException ex)
+            {
+                var rejected = Document.Reject(
+                    new DocumentId(Guid.NewGuid().ToString("N")),
+                    new TenantId(request.TenantId),
+                    new DocumentSource(request.Source),
+                    new DocumentFormat(request.Format),
+                    new DocumentMetadata(request.FileSizeBytes, request.MimeType, request.Language, request.PageCount, request.Author, request.CreationDate),
+                    new Provenance(request.SourceReference),
+                    new CorrelationId(request.CorrelationId),
+                    idempotencyKey,
+                    new RejectionReason(ex.Message));
 
-            var document = _domainService.EvaluateAcceptance(
-                new DocumentId(Guid.NewGuid().ToString("N")),
-                new TenantId(request.TenantId),
-                new DocumentSource(request.Source),
-                new DocumentFormat(request.Format),
-                new DocumentMetadata(request.FileSizeBytes, request.MimeType, request.Language, request.PageCount, request.Author, request.CreationDate),
-                new Provenance(request.SourceReference),
-                new CorrelationId(request.CorrelationId),
-                idempotencyKey);
-
-            _repository.Save(document);
-            _eventPublisher.Publish(document);
-            _logger?.Invoke($"Ingestion accepted for correlation {request.CorrelationId}.");
-
-            return new IngestionResult(document.Id.Value, document.ProcessingStage.ToString(), document.State.ToString());
+                _repository.Save(rejected);
+                _logger?.Invoke($"Ingestion rejected for correlation {request.CorrelationId}: {ex.Message}");
+                return new IngestionResult(rejected.Id.Value, rejected.ProcessingStage.ToString(), rejected.State.ToString(), rejected.RejectionReason?.Value);
+            }
         }
-        catch (DomainValidationException ex)
-        {
-            var rejected = Document.Reject(
-                new DocumentId(Guid.NewGuid().ToString("N")),
-                new TenantId(request.TenantId),
-                new DocumentSource(request.Source),
-                new DocumentFormat(request.Format),
-                new DocumentMetadata(request.FileSizeBytes, request.MimeType, request.Language, request.PageCount, request.Author, request.CreationDate),
-                new Provenance(request.SourceReference),
-                new CorrelationId(request.CorrelationId),
-                new IdempotencyKey(request.IdempotencyKey),
-                new RejectionReason(ex.Message));
+    }
 
-            _repository.Save(rejected);
-            _logger?.Invoke($"Ingestion rejected for correlation {request.CorrelationId}: {ex.Message}");
-            return new IngestionResult(rejected.Id.Value, rejected.ProcessingStage.ToString(), rejected.State.ToString(), rejected.RejectionReason?.Value);
-        }
+    private static string BuildLockKey(string tenantId, string idempotencyKey)
+    {
+        return $"{tenantId}:{idempotencyKey}";
     }
 
     private Document? GetExistingAcceptedDocument(string tenantId, IdempotencyKey idempotencyKey)
@@ -104,6 +126,11 @@ public interface IDocumentRepository
     void Save(Document document);
     Document? GetById(string id);
     Document? GetByTenantAndIdempotencyKey(string tenantId, string idempotencyKey);
+    bool TryCreate(Document document)
+    {
+        Save(document);
+        return true;
+    }
 }
 
 public interface IIngestionEventPublisher
@@ -111,4 +138,10 @@ public interface IIngestionEventPublisher
     void Publish(Document document);
     void PublishTextExtracted(Document document, string extractionStrategy, int textLength);
     void PublishTextExtractionFailed(Document document, string reason);
+    void PublishTextNormalized(Document document, string normalizationStrategy, int textLength);
+    void PublishTextNormalizationFailed(Document document, string reason);
+    void PublishClauseDetectionCompleted(Document document, int clauseCount);
+    void PublishClauseDetectionFailed(Document document, string reason);
+    void PublishClauseCategorizationCompleted(Document document, int clauseCount);
+    void PublishClauseCategorizationFailed(Document document, string reason);
 }

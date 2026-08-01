@@ -69,4 +69,56 @@ public class DocumentIngestionContractTests
         Assert.Equal(timestamp, domainEvent.Timestamp);
         Assert.Equal("v1", domainEvent.Version);
     }
+
+    [Fact]
+    public void ClauseDetectionCompletedEventContract_ContainsClauseCountAndCorrelationContext()
+    {
+        var timestamp = new DateTimeOffset(2024, 1, 2, 3, 4, 5, TimeSpan.Zero);
+        var domainEvent = new ClauseDetectionCompletedEvent("doc-1", "tenant-1", 2, "corr-1", timestamp, "v1");
+
+        Assert.Equal("doc-1", domainEvent.DocumentId);
+        Assert.Equal("tenant-1", domainEvent.TenantId);
+        Assert.Equal(2, domainEvent.ClauseCount);
+        Assert.Equal("corr-1", domainEvent.CorrelationId);
+        Assert.Equal("v1", domainEvent.Version);
+    }
+
+    [Fact]
+    public void ClauseDetectionFailedEventContract_ContainsFailureReasonAndCorrelationContext()
+    {
+        var timestamp = new DateTimeOffset(2024, 1, 2, 3, 4, 5, TimeSpan.Zero);
+        var domainEvent = new ClauseDetectionFailedEvent("doc-1", "tenant-1", "boom", "corr-1", timestamp, "v1");
+
+        Assert.Equal("doc-1", domainEvent.DocumentId);
+        Assert.Equal("tenant-1", domainEvent.TenantId);
+        Assert.Equal("boom", domainEvent.Reason);
+        Assert.Equal("corr-1", domainEvent.CorrelationId);
+        Assert.Equal("v1", domainEvent.Version);
+    }
+
+    [Fact]
+    public void ClauseCategorizationCompletedEventContract_ContainsClauseCountAndCorrelationContext()
+    {
+        var timestamp = new DateTimeOffset(2024, 1, 2, 3, 4, 5, TimeSpan.Zero);
+        var domainEvent = new ClauseCategorizationCompletedEvent("doc-1", "tenant-1", 2, "corr-1", timestamp, "v1");
+
+        Assert.Equal("doc-1", domainEvent.DocumentId);
+        Assert.Equal("tenant-1", domainEvent.TenantId);
+        Assert.Equal(2, domainEvent.ClauseCount);
+        Assert.Equal("corr-1", domainEvent.CorrelationId);
+        Assert.Equal("v1", domainEvent.Version);
+    }
+
+    [Fact]
+    public void ClauseCategorizationFailedEventContract_ContainsFailureReasonAndCorrelationContext()
+    {
+        var timestamp = new DateTimeOffset(2024, 1, 2, 3, 4, 5, TimeSpan.Zero);
+        var domainEvent = new ClauseCategorizationFailedEvent("doc-1", "tenant-1", "boom", "corr-1", timestamp, "v1");
+
+        Assert.Equal("doc-1", domainEvent.DocumentId);
+        Assert.Equal("tenant-1", domainEvent.TenantId);
+        Assert.Equal("boom", domainEvent.Reason);
+        Assert.Equal("corr-1", domainEvent.CorrelationId);
+        Assert.Equal("v1", domainEvent.Version);
+    }
 }

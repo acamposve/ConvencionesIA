@@ -77,6 +77,136 @@ public sealed class DocumentIngestionEventPublisher : IIngestionEventPublisher
             domainEvent.Version,
             domainEvent.Timestamp));
     }
+
+    public void PublishTextNormalized(Document document, string normalizationStrategy, int textLength)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var domainEvent = new TextNormalizedEvent(
+            document.Id.Value,
+            document.TenantId.Value,
+            normalizationStrategy,
+            textLength,
+            document.CorrelationId.Value,
+            DateTimeOffset.UtcNow,
+            "v1");
+
+        _auditRecords.Add(new IngestionAuditRecord(
+            document.Id.Value,
+            document.TenantId.Value,
+            document.CorrelationId.Value,
+            "TextNormalized",
+            domainEvent.Version,
+            domainEvent.Timestamp));
+    }
+
+    public void PublishTextNormalizationFailed(Document document, string reason)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(reason);
+
+        var domainEvent = new TextNormalizationFailedEvent(
+            document.Id.Value,
+            document.TenantId.Value,
+            reason,
+            document.CorrelationId.Value,
+            DateTimeOffset.UtcNow,
+            "v1");
+
+        _auditRecords.Add(new IngestionAuditRecord(
+            document.Id.Value,
+            document.TenantId.Value,
+            document.CorrelationId.Value,
+            "TextNormalizationFailed",
+            domainEvent.Version,
+            domainEvent.Timestamp));
+    }
+
+    public void PublishClauseDetectionCompleted(Document document, int clauseCount)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var domainEvent = new ClauseDetectionCompletedEvent(
+            document.Id.Value,
+            document.TenantId.Value,
+            clauseCount,
+            document.CorrelationId.Value,
+            DateTimeOffset.UtcNow,
+            "v1");
+
+        _auditRecords.Add(new IngestionAuditRecord(
+            document.Id.Value,
+            document.TenantId.Value,
+            document.CorrelationId.Value,
+            "ClauseDetectionCompleted",
+            domainEvent.Version,
+            domainEvent.Timestamp));
+    }
+
+    public void PublishClauseDetectionFailed(Document document, string reason)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(reason);
+
+        var domainEvent = new ClauseDetectionFailedEvent(
+            document.Id.Value,
+            document.TenantId.Value,
+            reason,
+            document.CorrelationId.Value,
+            DateTimeOffset.UtcNow,
+            "v1");
+
+        _auditRecords.Add(new IngestionAuditRecord(
+            document.Id.Value,
+            document.TenantId.Value,
+            document.CorrelationId.Value,
+            "ClauseDetectionFailed",
+            domainEvent.Version,
+            domainEvent.Timestamp));
+    }
+
+    public void PublishClauseCategorizationCompleted(Document document, int clauseCount)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var domainEvent = new ClauseCategorizationCompletedEvent(
+            document.Id.Value,
+            document.TenantId.Value,
+            clauseCount,
+            document.CorrelationId.Value,
+            DateTimeOffset.UtcNow,
+            "v1");
+
+        _auditRecords.Add(new IngestionAuditRecord(
+            document.Id.Value,
+            document.TenantId.Value,
+            document.CorrelationId.Value,
+            "ClauseCategorizationCompleted",
+            domainEvent.Version,
+            domainEvent.Timestamp));
+    }
+
+    public void PublishClauseCategorizationFailed(Document document, string reason)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(reason);
+
+        var domainEvent = new ClauseCategorizationFailedEvent(
+            document.Id.Value,
+            document.TenantId.Value,
+            reason,
+            document.CorrelationId.Value,
+            DateTimeOffset.UtcNow,
+            "v1");
+
+        _auditRecords.Add(new IngestionAuditRecord(
+            document.Id.Value,
+            document.TenantId.Value,
+            document.CorrelationId.Value,
+            "ClauseCategorizationFailed",
+            domainEvent.Version,
+            domainEvent.Timestamp));
+    }
 }
 
 public sealed record DocumentIngestionCompletedEvent(
@@ -97,6 +227,55 @@ public sealed record TextExtractedEvent(
     string Version);
 
 public sealed record TextExtractionFailedEvent(
+    string DocumentId,
+    string TenantId,
+    string Reason,
+    string CorrelationId,
+    DateTimeOffset Timestamp,
+    string Version);
+
+public sealed record TextNormalizedEvent(
+    string DocumentId,
+    string TenantId,
+    string NormalizationStrategy,
+    int TextLength,
+    string CorrelationId,
+    DateTimeOffset Timestamp,
+    string Version);
+
+public sealed record TextNormalizationFailedEvent(
+    string DocumentId,
+    string TenantId,
+    string Reason,
+    string CorrelationId,
+    DateTimeOffset Timestamp,
+    string Version);
+
+public sealed record ClauseDetectionCompletedEvent(
+    string DocumentId,
+    string TenantId,
+    int ClauseCount,
+    string CorrelationId,
+    DateTimeOffset Timestamp,
+    string Version);
+
+public sealed record ClauseDetectionFailedEvent(
+    string DocumentId,
+    string TenantId,
+    string Reason,
+    string CorrelationId,
+    DateTimeOffset Timestamp,
+    string Version);
+
+public sealed record ClauseCategorizationCompletedEvent(
+    string DocumentId,
+    string TenantId,
+    int ClauseCount,
+    string CorrelationId,
+    DateTimeOffset Timestamp,
+    string Version);
+
+public sealed record ClauseCategorizationFailedEvent(
     string DocumentId,
     string TenantId,
     string Reason,

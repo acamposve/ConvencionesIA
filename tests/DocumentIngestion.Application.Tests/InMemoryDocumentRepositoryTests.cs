@@ -49,4 +49,30 @@ public class InMemoryDocumentRepositoryTests
         Assert.NotNull(persisted);
         Assert.Equal("doc-2", persisted!.Id.Value);
     }
+
+    [Fact]
+    public void SaveAndGetById_RoundTripsNormalizedText()
+    {
+        var repository = new InMemoryDocumentRepository();
+        var document = Document.Accept(
+            new DocumentId("doc-3"),
+            new TenantId("tenant-3"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-3"),
+            new IdempotencyKey("tenant-3|upload|https://example.com/file.pdf"));
+
+        document.RecordExtractedText(new RawText("raw text"));
+        document.RecordNormalizedText(new NormalizedText("normalized text"));
+
+        repository.Save(document);
+
+        var persisted = repository.GetById("doc-3");
+
+        Assert.NotNull(persisted);
+        Assert.True(persisted!.HasNormalizedText);
+        Assert.Equal("normalized text", persisted.NormalizedText!.Value);
+    }
 }

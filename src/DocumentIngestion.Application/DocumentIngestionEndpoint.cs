@@ -22,11 +22,16 @@ public sealed class DocumentIngestionEndpoint
 
         Validate(request);
 
-        var securityContext = _securityGuard.Authenticate(userId, callerTenantId ?? request.TenantId);
-        _securityGuard.Authorize(securityContext, request.TenantId);
+        var securityContext = _securityGuard.Authenticate(userId, callerTenantId);
+        _securityGuard.Authorize(securityContext);
+
+        if (!string.Equals(request.TenantId, securityContext.TenantId, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new UnauthorizedAccessException("Authorization must ensure the caller can ingest documents for the specified tenant.");
+        }
 
         var useCaseResult = _useCase.Execute(new IngestionRequest(
-            request.TenantId,
+            securityContext.TenantId,
             request.Source,
             request.Format,
             request.FileSizeBytes,

@@ -27,6 +27,9 @@ public class DocumentPersistenceContractTests
             null,
             "PendingProcessing",
             "Accepted",
+            "Pdf",
+            "raw text",
+            "normalized text",
             new List<DocumentRevisionPersistenceContract>
             {
                 new(1, new DateTimeOffset(2024, 1, 2, 3, 4, 5, TimeSpan.Zero), "Accepted", "PendingProcessing")
@@ -36,6 +39,9 @@ public class DocumentPersistenceContractTests
         Assert.Equal("tenant-1", contract.TenantId);
         Assert.Equal("Accepted", contract.Outcome);
         Assert.Equal("PendingProcessing", contract.ProcessingStage);
+        Assert.Equal("Pdf", contract.DetectedDocumentType);
+        Assert.Equal("raw text", contract.ExtractedText);
+        Assert.Equal("normalized text", contract.NormalizedText);
         Assert.Single(contract.Revisions);
         Assert.Equal(1, contract.Revisions[0].Version);
     }

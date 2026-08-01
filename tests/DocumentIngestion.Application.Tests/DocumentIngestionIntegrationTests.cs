@@ -185,6 +185,121 @@ public class DocumentIngestionIntegrationTests
         Assert.Equal("Extraction failed", document.RejectionReason?.Value);
     }
 
+    [Fact]
+    public void NormalizeTextWorkflow_PersistsNormalizedTextAndPublishesEvent()
+    {
+        var repository = new InMemoryDocumentRepository();
+        var publisher = new DocumentIngestionEventPublisher();
+        var normalizationService = new OcrTextNormalizationService();
+        var normalizationUseCase = new NormalizeTextUseCase(normalizationService, null, publisher);
+        var document = Document.Accept(
+            new DocumentId("doc-29"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-29"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordExtractedText(new RawText("Hello   \t\tworld\r\n\r\nNext\nline"));
+        repository.Save(document);
+
+        normalizationUseCase.Execute(document);
+        repository.Save(document);
+
+        var persisted = repository.GetById("doc-29");
+
+        Assert.True(persisted!.HasNormalizedText);
+        Assert.Equal("Hello world\nNext line", persisted.NormalizedText?.Value);
+        Assert.Contains(publisher.AuditRecords, record => record.EventName == "TextNormalized");
+    }
+
+    [Fact]
+    public void NormalizeTextWorkflow_FailsDocumentAndPublishesFailureEventWhenNormalizationThrows()
+    {
+        var publisher = new DocumentIngestionEventPublisher();
+        var normalizationService = new ThrowingNormalizationService();
+        var normalizationUseCase = new NormalizeTextUseCase(normalizationService, null, publisher);
+        var document = Document.Accept(
+            new DocumentId("doc-30"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-30"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordExtractedText(new RawText("hello world"));
+
+        var ex = Assert.Throws<InvalidOperationException>(() => normalizationUseCase.Execute(document));
+
+        Assert.Equal("Normalization failed", ex.Message);
+        Assert.Equal(IngestionState.Failed, document.State);
+        Assert.Equal(IngestionOutcome.Failed, document.Outcome);
+        Assert.Contains(publisher.AuditRecords, record => record.EventName == "TextNormalizationFailed");
+    }
+
+    [Fact]
+    public void ClauseDetectionWorkflow_PersistsClausesAndPublishesCompletionEvent()
+    {
+        var repository = new InMemoryDocumentRepository();
+        var publisher = new DocumentIngestionEventPublisher();
+        var clauseDetectionService = new BoundaryClauseDetectionService();
+        var useCase = new DetectClausesUseCase(clauseDetectionService, null, publisher);
+        var document = Document.Accept(
+            new DocumentId("doc-35"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-35"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordExtractedText(new RawText("1. First clause. 2. Second clause."));
+        document.RecordNormalizedText(new NormalizedText("1. First clause. 2. Second clause."));
+        repository.Save(document);
+
+        var result = useCase.Execute(document);
+        repository.Save(result);
+
+        var persisted = repository.GetById("doc-35");
+
+        Assert.Same(document, result);
+        Assert.True(persisted!.HasClauses);
+        Assert.Equal(2, persisted.Clauses.Count);
+        Assert.Equal("First clause", persisted.Clauses[0].Text.Value);
+        Assert.Contains(publisher.AuditRecords, record => record.EventName == "ClauseDetectionCompleted");
+    }
+
+    [Fact]
+    public void ClauseDetectionWorkflow_UsesTenantScopedRepositoryLookup()
+    {
+        var repository = new InMemoryDocumentRepository();
+        var publisher = new DocumentIngestionEventPublisher();
+        var useCase = new DetectClausesUseCase(new BoundaryClauseDetectionService(), null, publisher);
+        var document = Document.Accept(
+            new DocumentId("doc-36"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-36"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordExtractedText(new RawText("1. One clause."));
+        document.RecordNormalizedText(new NormalizedText("1. One clause."));
+        repository.Save(document);
+
+        useCase.Execute(document);
+
+        Assert.NotNull(repository.GetByTenantAndIdempotencyKey("tenant-1", "tenant-1|upload|https://example.com/file.pdf"));
+        Assert.Null(repository.GetByTenantAndIdempotencyKey("tenant-2", "tenant-1|upload|https://example.com/file.pdf"));
+    }
+
     private static IngestionRequest CreateValidRequest()
     {
         return new IngestionRequest(
@@ -222,6 +337,14 @@ public class DocumentIngestionIntegrationTests
     private sealed class ThrowingTextExtractionService : ITextExtractionService
     {
         public TextExtractionResult Extract(string content, Document document)
+        {
+            throw new InvalidOperationException("boom");
+        }
+    }
+
+    private sealed class ThrowingNormalizationService : ITextNormalizationService
+    {
+        public TextNormalizationResult Normalize(string content, Document document)
         {
             throw new InvalidOperationException("boom");
         }

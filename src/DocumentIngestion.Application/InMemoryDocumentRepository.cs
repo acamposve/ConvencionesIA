@@ -1,11 +1,12 @@
 using DocumentIngestion.Domain;
+using System.Collections.Concurrent;
 
 namespace DocumentIngestion.Application;
 
 public sealed class InMemoryDocumentRepository : IDocumentRepository
 {
-    private readonly Dictionary<string, Document> _documentsById = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, Document> _documentsByIdempotencyKey = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, Document> _documentsById = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, Document> _documentsByIdempotencyKey = new(StringComparer.OrdinalIgnoreCase);
 
     public void Save(Document document)
     {
@@ -13,6 +14,20 @@ public sealed class InMemoryDocumentRepository : IDocumentRepository
 
         _documentsById[document.Id.Value] = document;
         _documentsByIdempotencyKey[BuildIdempotencyKey(document)] = document;
+    }
+
+    public bool TryCreate(Document document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var compositeKey = BuildCompositeKey(document.TenantId.Value, document.IdempotencyKey.Value);
+        if (!_documentsByIdempotencyKey.TryAdd(compositeKey, document))
+        {
+            return false;
+        }
+
+        _documentsById[document.Id.Value] = document;
+        return true;
     }
 
     public Document? GetById(string id)

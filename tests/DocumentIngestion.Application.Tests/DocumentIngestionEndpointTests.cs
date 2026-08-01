@@ -89,7 +89,7 @@ public class DocumentIngestionEndpointTests
     }
 
     [Fact]
-    public void Handle_RejectsTenantMismatch()
+    public void Handle_RejectsMismatchedRequestTenantAgainstCallerTenantContext()
     {
         var repository = new TestDocumentRepository();
         var publisher = new TestIngestionEventPublisher();
@@ -111,6 +111,58 @@ public class DocumentIngestionEndpointTests
             "tenant-1|upload|https://example.com/file.pdf");
 
         var ex = Assert.Throws<UnauthorizedAccessException>(() => endpoint.Handle(request, userId: "user-1", callerTenantId: "tenant-3"));
+        Assert.Contains("Authorization", ex.Message);
+    }
+
+    [Fact]
+    public void Handle_RejectsMissingCallerTenantContext()
+    {
+        var repository = new TestDocumentRepository();
+        var publisher = new TestIngestionEventPublisher();
+        var useCase = new IngestDocumentUseCase(repository, publisher);
+        var endpoint = new DocumentIngestionEndpoint(useCase);
+
+        var request = new IngestDocumentRequestContract(
+            "tenant-1",
+            "Upload",
+            "PDF",
+            2048,
+            "application/pdf",
+            "en",
+            3,
+            "Alice",
+            new DateTimeOffset(2024, 1, 2, 3, 4, 5, TimeSpan.Zero),
+            "https://example.com/file.pdf",
+            "corr-1",
+            "tenant-1|upload|https://example.com/file.pdf");
+
+        var ex = Assert.Throws<UnauthorizedAccessException>(() => endpoint.Handle(request, userId: "user-1", callerTenantId: null));
+        Assert.Contains("Tenant context", ex.Message);
+    }
+
+    [Fact]
+    public void Handle_RejectsTenantSpoofingAttempt()
+    {
+        var repository = new TestDocumentRepository();
+        var publisher = new TestIngestionEventPublisher();
+        var useCase = new IngestDocumentUseCase(repository, publisher);
+        var endpoint = new DocumentIngestionEndpoint(useCase);
+
+        var request = new IngestDocumentRequestContract(
+            "tenant-spoofed",
+            "Upload",
+            "PDF",
+            2048,
+            "application/pdf",
+            "en",
+            3,
+            "Alice",
+            new DateTimeOffset(2024, 1, 2, 3, 4, 5, TimeSpan.Zero),
+            "https://example.com/file.pdf",
+            "corr-1",
+            "tenant-spoofed|upload|https://example.com/file.pdf");
+
+        var ex = Assert.Throws<UnauthorizedAccessException>(() => endpoint.Handle(request, userId: "user-1", callerTenantId: "tenant-real"));
         Assert.Contains("Authorization", ex.Message);
     }
 
@@ -136,6 +188,30 @@ public class DocumentIngestionEndpointTests
         }
 
         public void PublishTextExtractionFailed(Document document, string reason)
+        {
+        }
+
+        public void PublishTextNormalized(Document document, string normalizationStrategy, int textLength)
+        {
+        }
+
+        public void PublishTextNormalizationFailed(Document document, string reason)
+        {
+        }
+
+        public void PublishClauseDetectionCompleted(Document document, int clauseCount)
+        {
+        }
+
+        public void PublishClauseDetectionFailed(Document document, string reason)
+        {
+        }
+
+        public void PublishClauseCategorizationCompleted(Document document, int clauseCount)
+        {
+        }
+
+        public void PublishClauseCategorizationFailed(Document document, string reason)
         {
         }
     }

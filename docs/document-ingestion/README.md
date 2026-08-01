@@ -2,7 +2,9 @@
 
 ## Overview
 
-The Document Ingestion feature now provides a domain-driven ingestion workflow for accepting or rejecting document submissions within tenant boundaries. The implementation covers the domain model, application workflow, endpoint contract, repository persistence abstraction, event publication, security enforcement, and a full test suite. It also includes a text-extraction capability that stores extracted content as RawText and publishes structured extraction events for success and failure.
+The Document Ingestion feature now provides a domain-driven ingestion workflow for accepting or rejecting document submissions within tenant boundaries. The implementation covers the domain model, application workflow, endpoint contract, repository persistence abstraction, event publication, security enforcement, and a full test suite. It also includes a text-extraction capability that stores extracted content as RawText, a clause-detection stage that extracts ordered clauses from normalized text, and a clause-categorization stage that assigns deterministic category labels and confidence scores to detected clauses.
+
+The current implementation uses tenant-aware authorization based on the authenticated caller context, applies repository-level atomic idempotency semantics to suppress duplicate accepted ingestions, and supports contract-driven persistence with both in-memory and file-system repository implementations.
 
 ## Approved Business Decisions
 
@@ -13,6 +15,7 @@ The Document Ingestion feature now provides a domain-driven ingestion workflow f
 - Accepted documents enter the lifecycle stage PendingProcessing
 - Accepted ingestions emit the versioned event DocumentIngestionCompleted with version v1
 - Rejected ingestions persist a rejection reason and do not create an accepted processing lifecycle state
+- Duplicate submissions for the same logical document are suppressed through an idempotency policy keyed to the tenant and the logical submission identity
 
 ## Implementation Scope
 
@@ -24,17 +27,19 @@ The current implementation includes:
 - Immediate rejection of unsupported or undetermined document types to prevent invalid processing
 - API contract for request and response payloads
 - Persistence contract for tenant-aware document state and revision history
-- Repository abstraction backed by an in-memory implementation for the current iteration
+- Repository abstraction backed by in-memory and file-system implementations, including contract-driven serialization and rehydration
 - Event publisher and audit record generation for accepted ingestions and text-extraction outcomes
 - A text-extraction workflow that routes PDF, DOCX, and image content through the appropriate strategy and stores extracted text on the document aggregate
-- Tenant and authentication enforcement at the endpoint boundary
+- A clause-detection workflow that transforms normalized text into ordered clause entities with optional numbering labels
+- A clause-categorization workflow that records category assignments and publishes completion or failure events for the clause pipeline
+- Tenant and authentication enforcement at the endpoint boundary, using the authenticated caller tenant as the authoritative tenant context
 
 ## Security and Multi-Tenant Considerations
 
 The implementation enforces the following safeguards:
 
 - Authentication is required for ingestion operations
-- Authorization ensures the caller can ingest documents only for the requested tenant
+- Authorization uses the authenticated caller tenant context and rejects mismatched or spoofed request-body tenant values
 - Tenant context is validated before processing proceeds
 - Rejected requests do not expose internal implementation details
 - Acceptance and rejection state remain traceable through correlation identifiers and audit records
@@ -50,8 +55,8 @@ The feature is covered by:
 
 Verification evidence:
 
-- Command executed: dotnet test Convenciones/Convenciones.slnx
-- Result: 79 tests passed, 0 failed
+- Command executed: dotnet test .\Convenciones\Convenciones.slnx
+- Result: 147 tests passed, 0 failed
 
 ## Rollout Readiness Review
 
@@ -64,10 +69,10 @@ Verification evidence:
 
 ### Remaining rollout considerations
 
-- The current repository implementation is in-memory and should be replaced with a durable persistence provider before production deployment
 - Operational configuration for authentication, authorization, logging, and tracing should be finalized in the target environment
 - Any future contract changes should remain backward compatible or use a new versioned event/API contract
+- Storage location permissions and runtime observability settings should be validated in the deployment environment
 
 ## Recommended Release Gate
 
-The feature is ready for architecture, security, and business review. Production rollout should proceed only after the repository layer is backed by the intended storage solution and environment-specific security and observability settings are confirmed.
+The feature is ready for architecture, security, business, and release review. Production rollout should proceed after environment-specific security, storage, and observability settings are confirmed.

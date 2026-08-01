@@ -19,12 +19,30 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IDocumentRepository, InMemoryDocumentRepository>();
         services.AddSingleton<IIngestionEventPublisher, DocumentIngestionEventPublisher>();
         services.AddSingleton<DocumentTypeDetectionEventPublisher>();
+        services.AddSingleton<ITextNormalizationService, OcrTextNormalizationService>();
+        services.AddSingleton<IClauseDetectionService, BoundaryClauseDetectionService>();
+        services.AddSingleton<IClauseCategorizationService, BoundaryClauseCategorizationService>();
         services.AddTransient<DetectDocumentTypeUseCase>(sp => new DetectDocumentTypeUseCase(
             sp.GetRequiredService<IDocumentTypeDetectionService>(),
             null,
             sp.GetRequiredService<DocumentTypeDetectionEventPublisher>()));
         services.AddTransient<ExtractTextUseCase>(sp => new ExtractTextUseCase(
             sp.GetRequiredService<TextExtractionServiceRouter>(),
+            null,
+            sp.GetRequiredService<IIngestionEventPublisher>(),
+            sp.GetRequiredService<NormalizeTextUseCase>(),
+            sp.GetRequiredService<DetectClausesUseCase>(),
+            sp.GetRequiredService<CategorizeClausesUseCase>()));
+        services.AddTransient<NormalizeTextUseCase>(sp => new NormalizeTextUseCase(
+            sp.GetRequiredService<ITextNormalizationService>(),
+            null,
+            sp.GetRequiredService<IIngestionEventPublisher>()));
+        services.AddTransient<DetectClausesUseCase>(sp => new DetectClausesUseCase(
+            sp.GetRequiredService<IClauseDetectionService>(),
+            null,
+            sp.GetRequiredService<IIngestionEventPublisher>()));
+        services.AddTransient<CategorizeClausesUseCase>(sp => new CategorizeClausesUseCase(
+            sp.GetRequiredService<IClauseCategorizationService>(),
             null,
             sp.GetRequiredService<IIngestionEventPublisher>()));
         services.AddTransient<IngestDocumentUseCase>();

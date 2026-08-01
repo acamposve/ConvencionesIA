@@ -17,11 +17,11 @@ public sealed class TenantSecurityGuard
         return new TenantSecurityContext(userId, tenantId);
     }
 
-    public void Authorize(TenantSecurityContext context, string requestedTenantId)
+    public void Authorize(TenantSecurityContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        if (!string.Equals(context.TenantId, requestedTenantId, StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(context.TenantId))
         {
             throw new UnauthorizedAccessException("Authorization must ensure the caller can ingest documents for the specified tenant.");
         }

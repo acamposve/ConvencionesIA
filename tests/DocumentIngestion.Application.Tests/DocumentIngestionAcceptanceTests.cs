@@ -140,4 +140,92 @@ public class DocumentIngestionAcceptanceTests
         Assert.Empty(publisher.AuditRecords);
         Assert.Null(repository.GetByTenantAndIdempotencyKey("tenant-1", "tenant-1|upload|https://example.com/file.pdf"));
     }
+
+    [Fact]
+    public void ClauseDetectionWorkflow_ProducesOrderedClausesForNormalizedText()
+    {
+        var repository = new InMemoryDocumentRepository();
+        var publisher = new DocumentIngestionEventPublisher();
+        var useCase = new DetectClausesUseCase(new BoundaryClauseDetectionService(), null, publisher);
+        var document = Document.Accept(
+            new DocumentId("doc-40"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-40"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordExtractedText(new RawText("1. First clause. 2. Second clause."));
+        document.RecordNormalizedText(new NormalizedText("1. First clause. 2. Second clause."));
+        repository.Save(document);
+
+        useCase.Execute(document);
+        repository.Save(document);
+
+        var persisted = repository.GetById("doc-40");
+
+        Assert.NotNull(persisted);
+        Assert.Equal(2, persisted!.Clauses.Count);
+        Assert.Equal("First clause", persisted.Clauses[0].Text.Value);
+        Assert.Equal("Second clause", persisted.Clauses[1].Text.Value);
+        Assert.Contains(publisher.AuditRecords, record => record.EventName == "ClauseDetectionCompleted");
+    }
+
+    [Fact]
+    public void ClauseCategorizationWorkflow_PersistsClausesAndAssignmentsAcrossRepositoryRoundTrip()
+    {
+        var repository = new InMemoryDocumentRepository();
+        var publisher = new DocumentIngestionEventPublisher();
+        var normalizationUseCase = new NormalizeTextUseCase(new OcrTextNormalizationService());
+        var detectionUseCase = new DetectClausesUseCase(new BoundaryClauseDetectionService(), null, publisher);
+        var categorizationUseCase = new CategorizeClausesUseCase(new BoundaryClauseCategorizationService(), null, publisher);
+        var extractionUseCase = new ExtractTextUseCase(
+            new TextExtractionServiceRouter(new StubTextExtractionService("1. First clause. 2. Second clause.", "Pdf"), new StubTextExtractionService("1. First clause. 2. Second clause.", "Pdf"), new StubTextExtractionService("1. First clause. 2. Second clause.", "Pdf")),
+            null,
+            publisher,
+            normalizationUseCase,
+            detectionUseCase,
+            categorizationUseCase);
+        var document = Document.Accept(
+            new DocumentId("doc-41"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-41"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        var result = extractionUseCase.Execute(document);
+        repository.Save(result);
+
+        var persisted = repository.GetById("doc-41");
+
+        Assert.NotNull(persisted);
+        Assert.True(persisted!.HasClauses);
+        Assert.True(persisted.HasCategoryAssignments);
+        Assert.Equal(2, persisted.Clauses.Count);
+        Assert.Equal("Obligation", persisted.CategoryAssignments[0].CategoryCode.Value);
+        Assert.Contains(publisher.AuditRecords, record => record.EventName == "ClauseDetectionCompleted");
+        Assert.Contains(publisher.AuditRecords, record => record.EventName == "ClauseCategorizationCompleted");
+    }
+
+    private sealed class StubTextExtractionService : ITextExtractionService
+    {
+        private readonly string _text;
+        private readonly string _strategy;
+
+        public StubTextExtractionService(string text, string strategy)
+        {
+            _text = text;
+            _strategy = strategy;
+        }
+
+        public TextExtractionResult Extract(string content, Document document)
+        {
+            return new TextExtractionResult(_text, _strategy);
+        }
+    }
 }

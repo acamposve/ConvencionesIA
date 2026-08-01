@@ -10,6 +10,7 @@ We are implementing a document ingestion workflow that:
 - enforces authentication and authorization at the service boundary
 - preserves business rules in the domain layer rather than in controllers or infrastructure
 - exposes versioned API and event contracts
+- suppresses duplicate accepted ingestions through idempotency semantics
 - uses automated tests across unit, integration, contract, and acceptance layers
 
 ## Architectural principles
@@ -31,7 +32,8 @@ The repository currently contains:
 - a domain model for the document aggregate and its value objects
 - application workflow logic for accepted and rejected ingestions
 - an API contract and endpoint boundary for document submission
-- a persistence abstraction with an in-memory implementation for the current iteration
+- a persistence abstraction with in-memory and file-system implementations for test and runtime scenarios
+- contract-driven document rehydration and revision-history preservation
 - event publication and audit behavior for accepted ingestions
 - MIME-based document-type detection with a distinct DocumentType value object and immediate rejection for unsupported or undetermined types
 - a comprehensive test suite covering core scenarios
@@ -57,11 +59,11 @@ Every change should:
 
 The current feature implementation is covered by automated tests. The documented verification run is:
 
-- command: dotnet test Convenciones/Convenciones.slnx
-- result: 79 tests passed, 0 failed
+- command: dotnet test .\Convenciones\Convenciones.slnx
+- result: 104 tests passed, 0 failed
 
 ## Next steps
 
-- replace the in-memory repository with a durable persistence provider
-- finalize authentication, authorization, logging, and tracing configuration for deployment
+- finalize deployment-specific authentication, authorization, logging, and tracing configuration
+- validate storage permissions and runtime observability settings for the file-system repository
 - keep API and event contracts versioned and backward compatible

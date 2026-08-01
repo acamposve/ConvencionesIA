@@ -103,7 +103,9 @@ public sealed record DocumentRevision(int Version, DateTimeOffset Timestamp, Ing
 public enum ProcessingStage
 {
     None,
-    PendingProcessing
+    PendingProcessing,
+    ClausesDetected,
+    ClausesCategorized
 }
 
 public enum IngestionState
@@ -127,6 +129,11 @@ public sealed record RejectionReason(string Value)
 }
 
 public sealed record RawText(string Value)
+{
+    public override string ToString() => Value;
+}
+
+public sealed record NormalizedText(string Value)
 {
     public override string ToString() => Value;
 }

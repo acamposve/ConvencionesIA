@@ -52,15 +52,17 @@ public sealed class GenerateDocumentSummaryUseCase
                 throw new InvalidOperationException("Document summary failed");
             }
 
-            var summaryText = document.HasDocumentClassification
-                ? $"Summary for {document.DocumentClassification!.ClassificationCode.Value}: {document.ExtractedText?.Value ?? document.NormalizedText?.Value ?? "processed document"}"
-                : document.ExtractedText?.Value ?? document.NormalizedText?.Value ?? "Processed document summary";
+            var canonicalText = document.NormalizedText?.Value
+                ?? document.ExtractedText?.Value
+                ?? "processed document";
+
+            var summaryText = BuildSummaryText(document, canonicalText);
 
             var result = DocumentSummaryResult.Create(
                 new SummaryText(summaryText));
 
             document.RecordDocumentSummary(result);
-            _eventPublisher.PublishDocumentSummaryCompleted(document, result.SummaryText.Value);
+            _eventPublisher.PublishDocumentSummaryCompleted(document, BuildEventSummaryMarker(result.SummaryText.Value));
             _logger?.Invoke($"DocumentSummary|DocumentId={document.Id.Value}|TenantId={document.TenantId.Value}|Outcome=Completed|ProcessingTimeMs={(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds:0}|CorrelationId={document.CorrelationId.Value}");
             return document;
         }
@@ -73,6 +75,22 @@ public sealed class GenerateDocumentSummaryUseCase
             _logger?.Invoke($"DocumentSummaryFailure|DocumentId={document.Id.Value}|TenantId={document.TenantId.Value}|ErrorType={ex.GetType().Name}|CorrelationId={document.CorrelationId.Value}");
             throw new InvalidOperationException(failureReason, ex);
         }
+    }
+
+    private static string BuildSummaryText(Document document, string canonicalText)
+    {
+        var trimmedText = string.Join(" ", canonicalText.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Take(24));
+        var prefix = document.HasDocumentClassification
+            ? $"Summary for {document.DocumentClassification!.ClassificationCode.Value}:"
+            : "Summary:";
+
+        return $"{prefix} {trimmedText}".Trim();
+    }
+
+    private static string BuildEventSummaryMarker(string summaryText)
+    {
+        var hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(summaryText));
+        return $"summary:sha256:{Convert.ToHexString(hash)}";
     }
 
     private sealed class NullIngestionEventPublisher : IIngestionEventPublisher

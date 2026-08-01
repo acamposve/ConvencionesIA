@@ -302,7 +302,7 @@ public class DocumentIngestionEventPublisherTests
         document.RecordDocumentSummary(DocumentSummaryResult.Create(
             new SummaryText("A concise summary")));
 
-        publisher.PublishDocumentSummaryCompleted(document, "A concise summary");
+        publisher.PublishDocumentSummaryCompleted(document, "summary:sha256:abc123");
 
         Assert.Single(publisher.AuditRecords);
         Assert.Equal("DocumentSummaryCompleted", publisher.AuditRecords[0].EventName);
@@ -311,7 +311,7 @@ public class DocumentIngestionEventPublisherTests
         Assert.Equal("corr-13", publisher.AuditRecords[0].CorrelationId);
 
         var completedEvent = Assert.IsType<DocumentSummaryCompletedEvent>(Assert.Single(publisher.DomainEvents));
-        Assert.Equal("A concise summary", completedEvent.SummaryText);
+        Assert.Equal("summary:sha256:abc123", completedEvent.SummaryText);
         Assert.Equal(2, completedEvent.RevisionNumber);
     }
 

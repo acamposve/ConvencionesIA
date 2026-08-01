@@ -29,6 +29,79 @@ public class DocumentClassificationTests
     }
 
     [Fact]
+    public void Rehydrate_AllowsAcceptedDocumentAtDocumentClassifiedStage()
+    {
+        var revisions = new List<DocumentRevision>
+        {
+            new(1, new DateTimeOffset(2024, 1, 2, 3, 4, 5, TimeSpan.Zero), IngestionOutcome.Accepted, ProcessingStage.ClausesCategorized),
+            new(2, new DateTimeOffset(2024, 1, 2, 3, 5, 0, TimeSpan.Zero), IngestionOutcome.Accepted, ProcessingStage.DocumentClassified)
+        };
+
+        var document = Document.Rehydrate(
+            new DocumentId("doc-74"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-74"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"),
+            IngestionState.Accepted,
+            ProcessingStage.DocumentClassified,
+            IngestionOutcome.Accepted,
+            null,
+            null,
+            new RawText("raw text"),
+            null,
+            revisions);
+
+        Assert.Equal(IngestionState.Accepted, document.State);
+        Assert.Equal(ProcessingStage.DocumentClassified, document.ProcessingStage);
+        Assert.Equal(IngestionOutcome.Accepted, document.Outcome);
+    }
+
+    [Fact]
+    public void Rehydrate_RestoresDocumentClassificationWithoutCreatingRevisionOrChangingState()
+    {
+        var revisions = new List<DocumentRevision>
+        {
+            new(1, new DateTimeOffset(2024, 1, 2, 3, 4, 5, TimeSpan.Zero), IngestionOutcome.Accepted, ProcessingStage.DocumentClassified)
+        };
+
+        var classification = DocumentClassificationResult.Create(
+            new DocumentClassificationCode("NDA"),
+            new ConfidenceScore(0.92m));
+
+        var document = Document.Rehydrate(
+            new DocumentId("doc-75"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-75"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"),
+            IngestionState.Accepted,
+            ProcessingStage.DocumentClassified,
+            IngestionOutcome.Accepted,
+            null,
+            null,
+            new RawText("raw text"),
+            null,
+            revisions,
+            null,
+            null,
+            classification);
+
+        Assert.True(document.HasDocumentClassification);
+        Assert.Equal("NDA", document.DocumentClassification!.ClassificationCode.Value);
+        Assert.Equal(0.92m, document.DocumentClassification.ConfidenceScore.Value);
+        Assert.Equal(1, document.Revisions.Count);
+        Assert.Equal(IngestionState.Accepted, document.State);
+        Assert.Equal(ProcessingStage.DocumentClassified, document.ProcessingStage);
+    }
+
+    [Fact]
     public void RecordDocumentClassification_RejectsEmptyClassificationCode()
     {
         var exception = Assert.Throws<DomainValidationException>(() => DocumentClassificationResult.Create(

@@ -249,12 +249,8 @@ public sealed class FileSystemDocumentRepository : IDocumentRepository
             normalizedText,
             revisions,
             clauses,
-            categoryAssignments);
-
-        if (documentClassification is not null)
-        {
-            document.RecordDocumentClassification(documentClassification);
-        }
+            categoryAssignments,
+            documentClassification);
 
         return document;
     }

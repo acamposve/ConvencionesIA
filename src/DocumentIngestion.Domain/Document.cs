@@ -129,7 +129,8 @@ public sealed class Document
         NormalizedText? normalizedText,
         IReadOnlyList<DocumentRevision> revisions,
         IReadOnlyList<Clause>? clauses = null,
-        IReadOnlyList<ClauseCategoryAssignment>? categoryAssignments = null)
+        IReadOnlyList<ClauseCategoryAssignment>? categoryAssignments = null,
+        DocumentClassificationResult? documentClassification = null)
     {
         ArgumentNullException.ThrowIfNull(id);
         ArgumentNullException.ThrowIfNull(tenantId);
@@ -165,6 +166,11 @@ public sealed class Document
         if (categoryAssignments is not null)
         {
             document._categoryAssignments.AddRange(categoryAssignments);
+        }
+
+        if (documentClassification is not null)
+        {
+            document.RestoreDocumentClassification(documentClassification);
         }
 
         return document;
@@ -262,7 +268,7 @@ public sealed class Document
 
                 break;
             case IngestionState.Accepted:
-                if ((processingStage != ProcessingStage.PendingProcessing && processingStage != ProcessingStage.ClausesDetected && processingStage != ProcessingStage.ClausesCategorized)
+                if ((processingStage != ProcessingStage.PendingProcessing && processingStage != ProcessingStage.ClausesDetected && processingStage != ProcessingStage.ClausesCategorized && processingStage != ProcessingStage.DocumentClassified)
                     || outcome != IngestionOutcome.Accepted
                     || rejectionReason is not null)
                 {
@@ -329,7 +335,8 @@ public sealed class Document
 
         if (lastRevision.ProcessingStage != processingStage
             && !(processingStage == ProcessingStage.ClausesDetected && lastRevision.ProcessingStage == ProcessingStage.PendingProcessing)
-            && !(processingStage == ProcessingStage.ClausesCategorized && lastRevision.ProcessingStage == ProcessingStage.ClausesDetected))
+            && !(processingStage == ProcessingStage.ClausesCategorized && lastRevision.ProcessingStage == ProcessingStage.ClausesDetected)
+            && !(processingStage == ProcessingStage.DocumentClassified && lastRevision.ProcessingStage == ProcessingStage.ClausesCategorized))
         {
             throw new DomainValidationException("Latest revision processing stage does not match document stage.");
         }
@@ -543,6 +550,12 @@ public sealed class Document
         _documentClassification = result;
         ProcessingStage = ProcessingStage.DocumentClassified;
         _revisions.Add(new DocumentRevision(_revisions.Count + 1, DateTimeOffset.UtcNow, IngestionOutcome.Accepted, ProcessingStage));
+    }
+
+    private void RestoreDocumentClassification(DocumentClassificationResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        _documentClassification = result;
     }
 
     public void FailDocumentClassification(string reason)

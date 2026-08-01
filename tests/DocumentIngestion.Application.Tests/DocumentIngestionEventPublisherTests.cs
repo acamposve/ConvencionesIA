@@ -284,4 +284,63 @@ public class DocumentIngestionEventPublisherTests
         Assert.Equal("boom", failedEvent.Reason);
         Assert.Equal(2, failedEvent.RevisionNumber);
     }
+
+    [Fact]
+    public void PublishDocumentSummaryCompleted_CreatesAuditRecordWithRevisionAndOutcomeMetadata()
+    {
+        var publisher = new DocumentIngestionEventPublisher();
+        var document = Document.Accept(
+            new DocumentId("doc-13"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-13"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordDocumentSummary(DocumentSummaryResult.Create(
+            new SummaryText("A concise summary")));
+
+        publisher.PublishDocumentSummaryCompleted(document, "A concise summary");
+
+        Assert.Single(publisher.AuditRecords);
+        Assert.Equal("DocumentSummaryCompleted", publisher.AuditRecords[0].EventName);
+        Assert.Equal("v1", publisher.AuditRecords[0].EventVersion);
+        Assert.Equal("tenant-1", publisher.AuditRecords[0].TenantId);
+        Assert.Equal("corr-13", publisher.AuditRecords[0].CorrelationId);
+
+        var completedEvent = Assert.IsType<DocumentSummaryCompletedEvent>(Assert.Single(publisher.DomainEvents));
+        Assert.Equal("A concise summary", completedEvent.SummaryText);
+        Assert.Equal(2, completedEvent.RevisionNumber);
+    }
+
+    [Fact]
+    public void PublishDocumentSummaryFailed_CreatesAuditRecordWithRevisionAndOutcomeMetadata()
+    {
+        var publisher = new DocumentIngestionEventPublisher();
+        var document = Document.Accept(
+            new DocumentId("doc-14"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-14"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.FailDocumentSummary("boom");
+
+        publisher.PublishDocumentSummaryFailed(document, "boom");
+
+        Assert.Single(publisher.AuditRecords);
+        Assert.Equal("DocumentSummaryFailed", publisher.AuditRecords[0].EventName);
+        Assert.Equal("v1", publisher.AuditRecords[0].EventVersion);
+        Assert.Equal("tenant-1", publisher.AuditRecords[0].TenantId);
+        Assert.Equal("corr-14", publisher.AuditRecords[0].CorrelationId);
+
+        var failedEvent = Assert.IsType<DocumentSummaryFailedEvent>(Assert.Single(publisher.DomainEvents));
+        Assert.Equal("boom", failedEvent.Reason);
+        Assert.Equal(2, failedEvent.RevisionNumber);
+    }
 }

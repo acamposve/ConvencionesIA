@@ -72,5 +72,7 @@ public class ClassifyDocumentUseCaseTests
         public void PublishClauseCategorizationFailed(Document document, string reason) { }
         public void PublishDocumentClassificationCompleted(Document document, string classificationCode, decimal confidenceScore) { CompletedCount++; }
         public void PublishDocumentClassificationFailed(Document document, string reason) { FailedCount++; }
+        public void PublishDocumentSummaryCompleted(Document document, string summaryText) { }
+        public void PublishDocumentSummaryFailed(Document document, string reason) { }
     }
 }

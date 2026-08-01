@@ -8,6 +8,7 @@ public sealed class Document
     private readonly List<Clause> _clauses = [];
     private readonly List<ClauseCategoryAssignment> _categoryAssignments = [];
     private DocumentClassificationResult? _documentClassification;
+    private DocumentSummaryResult? _documentSummary;
 
     public Document(
         DocumentId id,
@@ -57,12 +58,14 @@ public sealed class Document
     public IReadOnlyList<Clause> Clauses => _clauses.AsReadOnly();
     public IReadOnlyList<ClauseCategoryAssignment> CategoryAssignments => _categoryAssignments.AsReadOnly();
     public DocumentClassificationResult? DocumentClassification => _documentClassification;
+    public DocumentSummaryResult? DocumentSummary => _documentSummary;
     public bool HasDetectedDocumentType => DetectedDocumentType is not null;
     public bool HasExtractedText => ExtractedText is not null;
     public bool HasNormalizedText => NormalizedText is not null;
     public bool HasClauses => _clauses.Count > 0;
     public bool HasCategoryAssignments => _categoryAssignments.Count > 0;
     public bool HasDocumentClassification => _documentClassification is not null;
+    public bool HasDocumentSummary => _documentSummary is not null;
     public IReadOnlyList<DocumentRevision> Revisions => _revisions.AsReadOnly();
 
     public static Document Accept(
@@ -130,7 +133,8 @@ public sealed class Document
         IReadOnlyList<DocumentRevision> revisions,
         IReadOnlyList<Clause>? clauses = null,
         IReadOnlyList<ClauseCategoryAssignment>? categoryAssignments = null,
-        DocumentClassificationResult? documentClassification = null)
+        DocumentClassificationResult? documentClassification = null,
+        DocumentSummaryResult? documentSummary = null)
     {
         ArgumentNullException.ThrowIfNull(id);
         ArgumentNullException.ThrowIfNull(tenantId);
@@ -171,6 +175,11 @@ public sealed class Document
         if (documentClassification is not null)
         {
             document.RestoreDocumentClassification(documentClassification);
+        }
+
+        if (documentSummary is not null)
+        {
+            document.RestoreDocumentSummary(documentSummary);
         }
 
         return document;
@@ -558,6 +567,12 @@ public sealed class Document
         _documentClassification = result;
     }
 
+    private void RestoreDocumentSummary(DocumentSummaryResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        _documentSummary = result;
+    }
+
     public void FailDocumentClassification(string reason)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
@@ -565,6 +580,41 @@ public sealed class Document
         if (State == IngestionState.Rejected || State == IngestionState.Failed)
         {
             throw new InvalidOperationException("Cannot fail document classification after the document has been rejected or failed.");
+        }
+
+        State = IngestionState.Failed;
+        ProcessingStage = ProcessingStage.None;
+        Outcome = IngestionOutcome.Failed;
+        RejectionReason = new RejectionReason(reason);
+        _revisions.Add(new DocumentRevision(_revisions.Count + 1, DateTimeOffset.UtcNow, IngestionOutcome.Failed, ProcessingStage.None));
+    }
+
+    public void RecordDocumentSummary(DocumentSummaryResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+
+        if (State == IngestionState.Rejected || State == IngestionState.Failed)
+        {
+            throw new InvalidOperationException("Cannot record document summary after the document has been rejected or failed.");
+        }
+
+        if (HasDocumentSummary)
+        {
+            throw new InvalidOperationException("Document summary can only be recorded once.");
+        }
+
+        _documentSummary = result;
+        ProcessingStage = ProcessingStage.DocumentSummarized;
+        _revisions.Add(new DocumentRevision(_revisions.Count + 1, DateTimeOffset.UtcNow, IngestionOutcome.Accepted, ProcessingStage));
+    }
+
+    public void FailDocumentSummary(string reason)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+
+        if (State == IngestionState.Rejected || State == IngestionState.Failed)
+        {
+            throw new InvalidOperationException("Cannot fail document summary after the document has been rejected or failed.");
         }
 
         State = IngestionState.Failed;

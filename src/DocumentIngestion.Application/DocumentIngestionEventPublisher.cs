@@ -259,6 +259,56 @@ public sealed class DocumentIngestionEventPublisher : IIngestionEventPublisher
             domainEvent.Version,
             domainEvent.Timestamp));
     }
+
+    public void PublishDocumentSummaryCompleted(Document document, string summaryText)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(summaryText);
+
+        var domainEvent = new DocumentSummaryCompletedEvent(
+            document.Id.Value,
+            document.TenantId.Value,
+            summaryText,
+            document.CorrelationId.Value,
+            DateTimeOffset.UtcNow,
+            "v1",
+            document.Revisions.Count);
+
+        _domainEvents.Add(domainEvent);
+
+        _auditRecords.Add(new IngestionAuditRecord(
+            document.Id.Value,
+            document.TenantId.Value,
+            document.CorrelationId.Value,
+            "DocumentSummaryCompleted",
+            domainEvent.Version,
+            domainEvent.Timestamp));
+    }
+
+    public void PublishDocumentSummaryFailed(Document document, string reason)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(reason);
+
+        var domainEvent = new DocumentSummaryFailedEvent(
+            document.Id.Value,
+            document.TenantId.Value,
+            reason,
+            document.CorrelationId.Value,
+            DateTimeOffset.UtcNow,
+            "v1",
+            document.Revisions.Count);
+
+        _domainEvents.Add(domainEvent);
+
+        _auditRecords.Add(new IngestionAuditRecord(
+            document.Id.Value,
+            document.TenantId.Value,
+            document.CorrelationId.Value,
+            "DocumentSummaryFailed",
+            domainEvent.Version,
+            domainEvent.Timestamp));
+    }
 }
 
 public sealed record DocumentIngestionCompletedEvent(
@@ -346,6 +396,24 @@ public sealed record DocumentClassificationCompletedEvent(
     int RevisionNumber);
 
 public sealed record DocumentClassificationFailedEvent(
+    string DocumentId,
+    string TenantId,
+    string Reason,
+    string CorrelationId,
+    DateTimeOffset Timestamp,
+    string Version,
+    int RevisionNumber);
+
+public sealed record DocumentSummaryCompletedEvent(
+    string DocumentId,
+    string TenantId,
+    string SummaryText,
+    string CorrelationId,
+    DateTimeOffset Timestamp,
+    string Version,
+    int RevisionNumber);
+
+public sealed record DocumentSummaryFailedEvent(
     string DocumentId,
     string TenantId,
     string Reason,

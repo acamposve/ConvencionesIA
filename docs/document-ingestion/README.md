@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Document Ingestion feature now provides a domain-driven ingestion workflow for accepting or rejecting document submissions within tenant boundaries. The implementation covers the domain model, application workflow, endpoint contract, repository persistence abstraction, event publication, security enforcement, and a full test suite. It also includes a text-extraction capability that stores extracted content as RawText, a clause-detection stage that extracts ordered clauses from normalized text, and a clause-categorization stage that assigns deterministic category labels and confidence scores to detected clauses.
+The Document Ingestion feature now provides a domain-driven ingestion workflow for accepting or rejecting document submissions within tenant boundaries. The implementation covers the domain model, application workflow, endpoint contract, repository persistence abstraction, event publication, security enforcement, and a full test suite. It also includes a text-extraction capability that stores extracted content as RawText, a clause-detection stage that extracts ordered clauses from normalized text, a clause-categorization stage that assigns deterministic category labels and confidence scores to detected clauses, and a document-classification stage that assigns a primary business classification with confidence and emits success or failure events.
 
 The current implementation uses tenant-aware authorization based on the authenticated caller context, applies repository-level atomic idempotency semantics to suppress duplicate accepted ingestions, and supports contract-driven persistence with both in-memory and file-system repository implementations.
 
@@ -32,6 +32,7 @@ The current implementation includes:
 - A text-extraction workflow that routes PDF, DOCX, and image content through the appropriate strategy and stores extracted text on the document aggregate
 - A clause-detection workflow that transforms normalized text into ordered clause entities with optional numbering labels
 - A clause-categorization workflow that records category assignments and publishes completion or failure events for the clause pipeline
+- A document-classification workflow that records a primary classification and confidence score, persists the classification with the document aggregate, and publishes versioned completion or failure events
 - Tenant and authentication enforcement at the endpoint boundary, using the authenticated caller tenant as the authoritative tenant context
 
 ## Security and Multi-Tenant Considerations
@@ -56,7 +57,7 @@ The feature is covered by:
 Verification evidence:
 
 - Command executed: dotnet test .\Convenciones\Convenciones.slnx
-- Result: 147 tests passed, 0 failed
+- Result: 167 tests passed, 0 failed
 
 ## Rollout Readiness Review
 

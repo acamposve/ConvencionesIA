@@ -24,7 +24,8 @@ public sealed record DocumentPersistenceContract(
     string? NormalizedText,
     IReadOnlyList<DocumentRevisionPersistenceContract> Revisions,
     IReadOnlyList<ClausePersistenceContract>? Clauses = null,
-    IReadOnlyList<ClauseCategoryAssignmentPersistenceContract>? CategoryAssignments = null);
+    IReadOnlyList<ClauseCategoryAssignmentPersistenceContract>? CategoryAssignments = null,
+    IReadOnlyList<DocumentClassificationPersistenceContract>? DocumentClassifications = null);
 
 public sealed record DocumentRevisionPersistenceContract(
     int Version,
@@ -43,4 +44,8 @@ public sealed record ClausePersistenceContract(
 public sealed record ClauseCategoryAssignmentPersistenceContract(
     string ClauseId,
     string CategoryCode,
+    decimal ConfidenceScore);
+
+public sealed record DocumentClassificationPersistenceContract(
+    string ClassificationCode,
     decimal ConfidenceScore);

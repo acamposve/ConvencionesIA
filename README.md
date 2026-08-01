@@ -37,6 +37,7 @@ The repository currently contains:
 - event publication and audit behavior for accepted ingestions
 - MIME-based document-type detection with a distinct DocumentType value object and immediate rejection for unsupported or undetermined types
 - a comprehensive test suite covering core scenarios
+- document-classification support with domain, application, persistence, event, and test coverage
 
 ## Repository layout
 
@@ -60,7 +61,7 @@ Every change should:
 The current feature implementation is covered by automated tests. The documented verification run is:
 
 - command: dotnet test .\Convenciones\Convenciones.slnx
-- result: 104 tests passed, 0 failed
+- result: 167 tests passed, 0 failed
 
 ## Next steps
 

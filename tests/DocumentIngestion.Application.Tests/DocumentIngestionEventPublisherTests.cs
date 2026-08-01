@@ -223,4 +223,65 @@ public class DocumentIngestionEventPublisherTests
         Assert.Equal("tenant-1", publisher.AuditRecords[0].TenantId);
         Assert.Equal("corr-10", publisher.AuditRecords[0].CorrelationId);
     }
+
+    [Fact]
+    public void PublishDocumentClassificationCompleted_CreatesAuditRecordWithRevisionAndOutcomeMetadata()
+    {
+        var publisher = new DocumentIngestionEventPublisher();
+        var document = Document.Accept(
+            new DocumentId("doc-11"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-11"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordDocumentClassification(DocumentClassificationResult.Create(
+            new DocumentClassificationCode("NDA"),
+            new ConfidenceScore(0.92m)));
+
+        publisher.PublishDocumentClassificationCompleted(document, "NDA", 0.92m);
+
+        Assert.Single(publisher.AuditRecords);
+        Assert.Equal("DocumentClassificationCompleted", publisher.AuditRecords[0].EventName);
+        Assert.Equal("v1", publisher.AuditRecords[0].EventVersion);
+        Assert.Equal("tenant-1", publisher.AuditRecords[0].TenantId);
+        Assert.Equal("corr-11", publisher.AuditRecords[0].CorrelationId);
+
+        var completedEvent = Assert.IsType<DocumentClassificationCompletedEvent>(Assert.Single(publisher.DomainEvents));
+        Assert.Equal("NDA", completedEvent.ClassificationCode);
+        Assert.Equal(0.92m, completedEvent.ConfidenceScore);
+        Assert.Equal(2, completedEvent.RevisionNumber);
+    }
+
+    [Fact]
+    public void PublishDocumentClassificationFailed_CreatesAuditRecordWithRevisionAndOutcomeMetadata()
+    {
+        var publisher = new DocumentIngestionEventPublisher();
+        var document = Document.Accept(
+            new DocumentId("doc-12"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-12"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.FailDocumentClassification("boom");
+
+        publisher.PublishDocumentClassificationFailed(document, "boom");
+
+        Assert.Single(publisher.AuditRecords);
+        Assert.Equal("DocumentClassificationFailed", publisher.AuditRecords[0].EventName);
+        Assert.Equal("v1", publisher.AuditRecords[0].EventVersion);
+        Assert.Equal("tenant-1", publisher.AuditRecords[0].TenantId);
+        Assert.Equal("corr-12", publisher.AuditRecords[0].CorrelationId);
+
+        var failedEvent = Assert.IsType<DocumentClassificationFailedEvent>(Assert.Single(publisher.DomainEvents));
+        Assert.Equal("boom", failedEvent.Reason);
+        Assert.Equal(2, failedEvent.RevisionNumber);
+    }
 }

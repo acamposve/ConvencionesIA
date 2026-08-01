@@ -144,4 +144,6 @@ public interface IIngestionEventPublisher
     void PublishClauseDetectionFailed(Document document, string reason);
     void PublishClauseCategorizationCompleted(Document document, int clauseCount);
     void PublishClauseCategorizationFailed(Document document, string reason);
+    void PublishDocumentClassificationCompleted(Document document, string classificationCode, decimal confidenceScore);
+    void PublishDocumentClassificationFailed(Document document, string reason);
 }

@@ -108,7 +108,10 @@ public class ExtractTextUseCaseTests
             new TextExtractionServiceRouter(extractionService, extractionService, extractionService),
             null,
             null,
-            normalizationUseCase);
+            normalizationUseCase,
+            null,
+            null,
+            null);
 
         var document = Document.Accept(
             new DocumentId("doc-26"),
@@ -137,7 +140,10 @@ public class ExtractTextUseCaseTests
             new TextExtractionServiceRouter(extractionService, extractionService, extractionService),
             null,
             null,
-            normalizationUseCase);
+            normalizationUseCase,
+            null,
+            null,
+            null);
 
         var document = Document.Accept(
             new DocumentId("doc-28"),
@@ -169,7 +175,9 @@ public class ExtractTextUseCaseTests
             null,
             null,
             normalizationUseCase,
-            clauseDetectionUseCase);
+            clauseDetectionUseCase,
+            null,
+            null);
 
         var document = Document.Accept(
             new DocumentId("doc-29"),
@@ -204,7 +212,8 @@ public class ExtractTextUseCaseTests
             null,
             normalizationUseCase,
             clauseDetectionUseCase,
-            clauseCategorizationUseCase);
+            clauseCategorizationUseCase,
+            null);
 
         var document = Document.Accept(
             new DocumentId("doc-30"),
@@ -238,7 +247,8 @@ public class ExtractTextUseCaseTests
             null,
             normalizationUseCase,
             clauseDetectionUseCase,
-            clauseCategorizationUseCase);
+            clauseCategorizationUseCase,
+            null);
 
         var document = Document.Accept(
             new DocumentId("doc-31"),

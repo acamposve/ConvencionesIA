@@ -10,38 +10,39 @@ public sealed class ExtractTextUseCase
     private readonly NormalizeTextUseCase? _normalizationUseCase;
     private readonly DetectClausesUseCase? _clauseDetectionUseCase;
     private readonly CategorizeClausesUseCase? _clauseCategorizationUseCase;
+    private readonly ClassifyDocumentUseCase? _classificationUseCase;
 
     public ExtractTextUseCase(ITextExtractionService textExtractionService)
-        : this(new TextExtractionServiceRouter(textExtractionService, textExtractionService, textExtractionService), null, null, null, null, null)
+        : this(new TextExtractionServiceRouter(textExtractionService, textExtractionService, textExtractionService), null, null, null, null, null, null)
     {
     }
 
     public ExtractTextUseCase(ITextExtractionService textExtractionService, Action<string>? logger)
-        : this(new TextExtractionServiceRouter(textExtractionService, textExtractionService, textExtractionService), logger, null, null, null, null)
+        : this(new TextExtractionServiceRouter(textExtractionService, textExtractionService, textExtractionService), logger, null, null, null, null, null)
     {
     }
 
     public ExtractTextUseCase(TextExtractionServiceRouter router, Action<string>? logger)
-        : this(router, logger, null, null, null, null)
+        : this(router, logger, null, null, null, null, null)
     {
     }
 
     public ExtractTextUseCase(TextExtractionServiceRouter router, Action<string>? logger, IIngestionEventPublisher? eventPublisher)
-        : this(router, logger, eventPublisher, null, null, null)
+        : this(router, logger, eventPublisher, null, null, null, null)
     {
     }
 
     public ExtractTextUseCase(TextExtractionServiceRouter router, Action<string>? logger, IIngestionEventPublisher? eventPublisher, NormalizeTextUseCase? normalizationUseCase)
-        : this(router, logger, eventPublisher, normalizationUseCase, null, null)
+        : this(router, logger, eventPublisher, normalizationUseCase, null, null, null)
     {
     }
 
     public ExtractTextUseCase(TextExtractionServiceRouter router, Action<string>? logger, IIngestionEventPublisher? eventPublisher, NormalizeTextUseCase? normalizationUseCase, DetectClausesUseCase? clauseDetectionUseCase)
-        : this(router, logger, eventPublisher, normalizationUseCase, clauseDetectionUseCase, null)
+        : this(router, logger, eventPublisher, normalizationUseCase, clauseDetectionUseCase, null, null)
     {
     }
 
-    public ExtractTextUseCase(TextExtractionServiceRouter router, Action<string>? logger, IIngestionEventPublisher? eventPublisher, NormalizeTextUseCase? normalizationUseCase, DetectClausesUseCase? clauseDetectionUseCase, CategorizeClausesUseCase? clauseCategorizationUseCase)
+    public ExtractTextUseCase(TextExtractionServiceRouter router, Action<string>? logger, IIngestionEventPublisher? eventPublisher, NormalizeTextUseCase? normalizationUseCase, DetectClausesUseCase? clauseDetectionUseCase, CategorizeClausesUseCase? clauseCategorizationUseCase, ClassifyDocumentUseCase? classificationUseCase)
     {
         _router = router ?? throw new ArgumentNullException(nameof(router));
         _logger = logger;
@@ -49,6 +50,7 @@ public sealed class ExtractTextUseCase
         _normalizationUseCase = normalizationUseCase;
         _clauseDetectionUseCase = clauseDetectionUseCase;
         _clauseCategorizationUseCase = clauseCategorizationUseCase;
+        _classificationUseCase = classificationUseCase;
     }
 
     public Document Execute(Document document)
@@ -89,6 +91,11 @@ public sealed class ExtractTextUseCase
             if (_clauseCategorizationUseCase is not null && document.HasClauses)
             {
                 _clauseCategorizationUseCase.Execute(document);
+            }
+
+            if (_classificationUseCase is not null && (document.HasExtractedText || document.HasNormalizedText || document.HasClauses))
+            {
+                _classificationUseCase.Execute(document);
             }
 
             return document;
@@ -158,6 +165,14 @@ public sealed class ExtractTextUseCase
         }
 
         public void PublishClauseCategorizationFailed(Document document, string reason)
+        {
+        }
+
+        public void PublishDocumentClassificationCompleted(Document document, string classificationCode, decimal confidenceScore)
+        {
+        }
+
+        public void PublishDocumentClassificationFailed(Document document, string reason)
         {
         }
     }

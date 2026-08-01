@@ -7,6 +7,7 @@ public sealed class Document
     private readonly List<DocumentRevision> _revisions = [];
     private readonly List<Clause> _clauses = [];
     private readonly List<ClauseCategoryAssignment> _categoryAssignments = [];
+    private DocumentClassificationResult? _documentClassification;
 
     public Document(
         DocumentId id,
@@ -55,11 +56,13 @@ public sealed class Document
     public NormalizedText? NormalizedText { get; private set; }
     public IReadOnlyList<Clause> Clauses => _clauses.AsReadOnly();
     public IReadOnlyList<ClauseCategoryAssignment> CategoryAssignments => _categoryAssignments.AsReadOnly();
+    public DocumentClassificationResult? DocumentClassification => _documentClassification;
     public bool HasDetectedDocumentType => DetectedDocumentType is not null;
     public bool HasExtractedText => ExtractedText is not null;
     public bool HasNormalizedText => NormalizedText is not null;
     public bool HasClauses => _clauses.Count > 0;
     public bool HasCategoryAssignments => _categoryAssignments.Count > 0;
+    public bool HasDocumentClassification => _documentClassification is not null;
     public IReadOnlyList<DocumentRevision> Revisions => _revisions.AsReadOnly();
 
     public static Document Accept(
@@ -514,6 +517,41 @@ public sealed class Document
         if (State == IngestionState.Rejected || State == IngestionState.Failed)
         {
             throw new InvalidOperationException("Cannot fail clause categorization after the document has been rejected or failed.");
+        }
+
+        State = IngestionState.Failed;
+        ProcessingStage = ProcessingStage.None;
+        Outcome = IngestionOutcome.Failed;
+        RejectionReason = new RejectionReason(reason);
+        _revisions.Add(new DocumentRevision(_revisions.Count + 1, DateTimeOffset.UtcNow, IngestionOutcome.Failed, ProcessingStage.None));
+    }
+
+    public void RecordDocumentClassification(DocumentClassificationResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+
+        if (State == IngestionState.Rejected || State == IngestionState.Failed)
+        {
+            throw new InvalidOperationException("Cannot record document classification after the document has been rejected or failed.");
+        }
+
+        if (HasDocumentClassification)
+        {
+            throw new InvalidOperationException("Document classification can only be recorded once.");
+        }
+
+        _documentClassification = result;
+        ProcessingStage = ProcessingStage.DocumentClassified;
+        _revisions.Add(new DocumentRevision(_revisions.Count + 1, DateTimeOffset.UtcNow, IngestionOutcome.Accepted, ProcessingStage));
+    }
+
+    public void FailDocumentClassification(string reason)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+
+        if (State == IngestionState.Rejected || State == IngestionState.Failed)
+        {
+            throw new InvalidOperationException("Cannot fail document classification after the document has been rejected or failed.");
         }
 
         State = IngestionState.Failed;

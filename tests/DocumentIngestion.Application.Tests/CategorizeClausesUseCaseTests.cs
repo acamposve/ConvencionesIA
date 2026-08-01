@@ -111,5 +111,7 @@ public class CategorizeClausesUseCaseTests
         public void PublishClauseDetectionFailed(Document document, string reason) { }
         public void PublishClauseCategorizationCompleted(Document document, int clauseCount) { CompletedCount++; }
         public void PublishClauseCategorizationFailed(Document document, string reason) { FailedCount++; }
+        public void PublishDocumentClassificationCompleted(Document document, string classificationCode, decimal confidenceScore) { }
+        public void PublishDocumentClassificationFailed(Document document, string reason) { }
     }
 }

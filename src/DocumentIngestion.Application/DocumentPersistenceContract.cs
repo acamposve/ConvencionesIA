@@ -25,7 +25,8 @@ public sealed record DocumentPersistenceContract(
     IReadOnlyList<DocumentRevisionPersistenceContract> Revisions,
     IReadOnlyList<ClausePersistenceContract>? Clauses = null,
     IReadOnlyList<ClauseCategoryAssignmentPersistenceContract>? CategoryAssignments = null,
-    IReadOnlyList<DocumentClassificationPersistenceContract>? DocumentClassifications = null);
+    IReadOnlyList<DocumentClassificationPersistenceContract>? DocumentClassifications = null,
+    IReadOnlyList<DocumentSummaryPersistenceContract>? DocumentSummaries = null);
 
 public sealed record DocumentRevisionPersistenceContract(
     int Version,
@@ -49,3 +50,6 @@ public sealed record ClauseCategoryAssignmentPersistenceContract(
 public sealed record DocumentClassificationPersistenceContract(
     string ClassificationCode,
     decimal ConfidenceScore);
+
+public sealed record DocumentSummaryPersistenceContract(
+    string SummaryText);

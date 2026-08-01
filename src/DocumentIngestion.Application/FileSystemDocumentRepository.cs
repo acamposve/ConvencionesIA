@@ -157,6 +157,12 @@ public sealed class FileSystemDocumentRepository : IDocumentRepository
                 : new List<DocumentClassificationPersistenceContract>
                 {
                     new(document.DocumentClassification.ClassificationCode.Value, document.DocumentClassification.ConfidenceScore.Value)
+                },
+            document.DocumentSummary is null
+                ? null
+                : new List<DocumentSummaryPersistenceContract>
+                {
+                    new(document.DocumentSummary.SummaryText.Value)
                 });
     }
 
@@ -231,6 +237,14 @@ public sealed class FileSystemDocumentRepository : IDocumentRepository
                 new ConfidenceScore(classification.ConfidenceScore));
         }
 
+        DocumentSummaryResult? documentSummary = null;
+        if (contract.DocumentSummaries is { Count: > 0 })
+        {
+            var summary = contract.DocumentSummaries[0];
+            documentSummary = DocumentSummaryResult.Create(
+                new SummaryText(summary.SummaryText));
+        }
+
         var document = Document.Rehydrate(
             documentId,
             tenantId,
@@ -250,7 +264,8 @@ public sealed class FileSystemDocumentRepository : IDocumentRepository
             revisions,
             clauses,
             categoryAssignments,
-            documentClassification);
+            documentClassification,
+            documentSummary);
 
         return document;
     }

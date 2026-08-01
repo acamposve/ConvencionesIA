@@ -33,7 +33,8 @@ public static class ServiceCollectionExtensions
             sp.GetRequiredService<NormalizeTextUseCase>(),
             sp.GetRequiredService<DetectClausesUseCase>(),
             sp.GetRequiredService<CategorizeClausesUseCase>(),
-            sp.GetRequiredService<ClassifyDocumentUseCase>()));
+            sp.GetRequiredService<ClassifyDocumentUseCase>(),
+            sp.GetRequiredService<GenerateDocumentSummaryUseCase>()));
         services.AddTransient<NormalizeTextUseCase>(sp => new NormalizeTextUseCase(
             sp.GetRequiredService<ITextNormalizationService>(),
             null,
@@ -47,6 +48,10 @@ public static class ServiceCollectionExtensions
             null,
             sp.GetRequiredService<IIngestionEventPublisher>()));
         services.AddTransient<ClassifyDocumentUseCase>(sp => new ClassifyDocumentUseCase(
+            null,
+            null,
+            sp.GetRequiredService<IIngestionEventPublisher>()));
+        services.AddTransient<GenerateDocumentSummaryUseCase>(sp => new GenerateDocumentSummaryUseCase(
             null,
             null,
             sp.GetRequiredService<IIngestionEventPublisher>()));

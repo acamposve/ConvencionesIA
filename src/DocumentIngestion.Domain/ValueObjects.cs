@@ -106,7 +106,8 @@ public enum ProcessingStage
     PendingProcessing,
     ClausesDetected,
     ClausesCategorized,
-    DocumentClassified
+    DocumentClassified,
+    DocumentSummarized
 }
 
 public enum IngestionState

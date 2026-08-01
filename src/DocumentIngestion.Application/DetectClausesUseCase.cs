@@ -120,5 +120,13 @@ public sealed class DetectClausesUseCase
         public void PublishDocumentClassificationFailed(Document document, string reason)
         {
         }
+
+        public void PublishDocumentSummaryCompleted(Document document, string summaryText)
+        {
+        }
+
+        public void PublishDocumentSummaryFailed(Document document, string reason)
+        {
+        }
     }
 }

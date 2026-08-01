@@ -314,6 +314,98 @@ public class DocumentIngestionAcceptanceTests
         Assert.Equal(3, document.Revisions.Count);
     }
 
+    [Fact]
+    public void DocumentSummaryWorkflow_GeneratesSummaryWhenEvidenceIsPresent()
+    {
+        var repository = new InMemoryDocumentRepository();
+        var publisher = new DocumentIngestionEventPublisher();
+        var summaryUseCase = new GenerateDocumentSummaryUseCase(null, publisher);
+        var document = Document.Accept(
+            new DocumentId("doc-45"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-45"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordExtractedText(new RawText("This is a contract."));
+        document.RecordDocumentClassification(DocumentClassificationResult.Create(
+            new DocumentClassificationCode("NDA"),
+            new ConfidenceScore(0.92m)));
+        repository.Save(document);
+
+        var result = summaryUseCase.Execute(document);
+        repository.Save(result);
+
+        var persisted = repository.GetById("doc-45");
+
+        Assert.Same(document, result);
+        Assert.NotNull(persisted);
+        Assert.True(persisted!.HasDocumentSummary);
+        Assert.Equal("Summary for NDA: This is a contract.", persisted.DocumentSummary!.SummaryText.Value);
+        Assert.Contains(publisher.AuditRecords, record => record.EventName == "DocumentSummaryCompleted");
+    }
+
+    [Fact]
+    public void DocumentSummaryWorkflow_FailsAndPersistsFailureWhenEvidenceIsMissing()
+    {
+        var repository = new InMemoryDocumentRepository();
+        var publisher = new DocumentIngestionEventPublisher();
+        var summaryUseCase = new GenerateDocumentSummaryUseCase(null, publisher);
+        var document = Document.Accept(
+            new DocumentId("doc-46"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-46"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        repository.Save(document);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => summaryUseCase.Execute(document));
+
+        Assert.Equal("Document summary failed", ex.Message);
+        Assert.Equal(IngestionState.Failed, document.State);
+        Assert.Contains(publisher.AuditRecords, record => record.EventName == "DocumentSummaryFailed");
+        Assert.NotNull(repository.GetById("doc-46"));
+    }
+
+    [Fact]
+    public void DocumentSummaryWorkflow_IsDeterministicAcrossReruns()
+    {
+        var repository = new InMemoryDocumentRepository();
+        var publisher = new DocumentIngestionEventPublisher();
+        var summaryUseCase = new GenerateDocumentSummaryUseCase(null, publisher);
+        var document = Document.Accept(
+            new DocumentId("doc-47"),
+            new TenantId("tenant-1"),
+            new DocumentSource("Upload"),
+            new DocumentFormat("PDF"),
+            new DocumentMetadata(2048, "application/pdf", "en"),
+            new Provenance("https://example.com/file.pdf", "Example"),
+            new CorrelationId("corr-47"),
+            new IdempotencyKey("tenant-1|upload|https://example.com/file.pdf"));
+
+        document.RecordExtractedText(new RawText("This is a contract."));
+        document.RecordDocumentClassification(DocumentClassificationResult.Create(
+            new DocumentClassificationCode("NDA"),
+            new ConfidenceScore(0.92m)));
+        repository.Save(document);
+
+        var firstResult = summaryUseCase.Execute(document);
+        repository.Save(firstResult);
+        var secondResult = summaryUseCase.Execute(firstResult);
+
+        Assert.Same(document, firstResult);
+        Assert.Same(document, secondResult);
+        Assert.Equal("Summary for NDA: This is a contract.", document.DocumentSummary!.SummaryText.Value);
+        Assert.Equal(3, document.Revisions.Count);
+    }
+
     private sealed class StubTextExtractionService : ITextExtractionService
     {
         private readonly string _text;

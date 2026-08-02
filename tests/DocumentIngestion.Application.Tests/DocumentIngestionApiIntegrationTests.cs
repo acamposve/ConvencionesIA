@@ -45,12 +45,7 @@ public class DocumentIngestionApiIntegrationTests
                         endpoints.MapGet("/api/v1/documents", (string? tenantId, IServiceProvider services, int page = 1, int pageSize = 10) =>
                         {
                             var repository = services.GetRequiredService<IDocumentRepository>();
-                            var documents = repository switch
-                            {
-                                InMemoryDocumentRepository memoryRepository => memoryRepository.GetAll(tenantId, page, pageSize),
-                                _ => Array.Empty<DocumentPersistenceContract>()
-                            };
-
+                            var documents = repository.GetAll(tenantId, page, pageSize);
                             return Results.Ok(documents);
                         });
                     });

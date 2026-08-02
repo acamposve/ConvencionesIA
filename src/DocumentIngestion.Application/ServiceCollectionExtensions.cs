@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DocumentIngestion.Application;
@@ -5,6 +6,11 @@ namespace DocumentIngestion.Application;
 public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddDocumentIngestionApplication(this IServiceCollection services)
+    {
+        return services.AddDocumentIngestionApplication(configuration: null);
+    }
+
+    public static IServiceCollection AddDocumentIngestionApplication(this IServiceCollection services, IConfiguration? configuration)
     {
         ArgumentNullException.ThrowIfNull(services);
 
@@ -16,8 +22,18 @@ public static class ServiceCollectionExtensions
             sp.GetRequiredService<PdfTextExtractionService>(),
             sp.GetRequiredService<DocxTextExtractionService>(),
             sp.GetRequiredService<ImageOcrTextExtractionService>()));
-        services.AddSingleton<IDocumentRepository, InMemoryDocumentRepository>();
+        services.AddSingleton<IDocumentRepository>(sp =>
+        {
+            var connectionString = configuration?.GetConnectionString("DocumentIngestion")
+                ?? Environment.GetEnvironmentVariable("DOCUMENT_INGESTION_CONNECTION_STRING")
+                ?? "Data Source=document-ingestion.db";
+
+            return LooksLikePostgresConnectionString(connectionString)
+                ? new PostgresDocumentRepository(connectionString)
+                : new SqliteDocumentRepository(connectionString);
+        });
         services.AddSingleton<IIngestionEventPublisher, DocumentIngestionEventPublisher>();
+        services.AddSingleton<RepositoryOperationLogger>();
         services.AddSingleton<DocumentTypeDetectionEventPublisher>();
         services.AddSingleton<ITextNormalizationService, OcrTextNormalizationService>();
         services.AddSingleton<IClauseDetectionService, BoundaryClauseDetectionService>();
@@ -64,5 +80,14 @@ public static class ServiceCollectionExtensions
         services.AddTransient<DocumentIngestionEndpoint>();
 
         return services;
+    }
+
+    private static bool LooksLikePostgresConnectionString(string connectionString)
+    {
+        return connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase)
+            || connectionString.Contains("Server=", StringComparison.OrdinalIgnoreCase)
+            || connectionString.Contains("Port=", StringComparison.OrdinalIgnoreCase)
+            || connectionString.Contains("User ID=", StringComparison.OrdinalIgnoreCase)
+            || connectionString.Contains("Username=", StringComparison.OrdinalIgnoreCase);
     }
 }

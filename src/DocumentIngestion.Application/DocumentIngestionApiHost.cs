@@ -17,7 +17,7 @@ public static class DocumentIngestionApiHost
             builder.WebHost.UseTestServer();
         }
 
-        builder.Services.AddDocumentIngestionApplication();
+        builder.Services.AddDocumentIngestionApplication(builder.Configuration);
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
 
@@ -37,11 +37,12 @@ public static class DocumentIngestionApiHost
             return Results.Ok(response);
         });
 
-        app.MapGet("/api/v1/documents/{id}", (string id, IServiceProvider services) =>
+        app.MapGet("/api/v1/documents/{id}", (string id, HttpContext httpContext, IServiceProvider services) =>
         {
             var repository = services.GetRequiredService<IDocumentRepository>();
+            var tenantId = httpContext.Request.Headers["x-demo-tenant"].FirstOrDefault();
             var document = repository.GetById(id);
-            if (document is null)
+            if (document is null || (!string.IsNullOrWhiteSpace(tenantId) && !string.Equals(document.TenantId.Value, tenantId, StringComparison.OrdinalIgnoreCase)))
             {
                 return Results.NotFound(new { error = "Document not found." });
             }
@@ -49,15 +50,13 @@ public static class DocumentIngestionApiHost
             return Results.Ok(ToPersistenceContract(document));
         });
 
-        app.MapGet("/api/v1/documents", (string? tenantId, IServiceProvider services, int page = 1, int pageSize = 10) =>
+        app.MapGet("/api/v1/documents", (string? tenantId, HttpContext httpContext, IServiceProvider services, int page = 1, int pageSize = 10) =>
         {
             var repository = services.GetRequiredService<IDocumentRepository>();
-            var documents = repository switch
-            {
-                InMemoryDocumentRepository memoryRepository => memoryRepository.GetAll(tenantId, page, pageSize),
-                _ => Array.Empty<DocumentPersistenceContract>()
-            };
-
+            var effectiveTenantId = string.IsNullOrWhiteSpace(tenantId)
+                ? httpContext.Request.Headers["x-demo-tenant"].FirstOrDefault()
+                : tenantId;
+            var documents = repository.GetAll(effectiveTenantId, page, pageSize);
             return Results.Ok(documents);
         });
 

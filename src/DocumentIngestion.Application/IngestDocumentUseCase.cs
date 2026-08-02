@@ -126,6 +126,11 @@ public interface IDocumentRepository
     void Save(Document document);
     Document? GetById(string id);
     Document? GetByTenantAndIdempotencyKey(string tenantId, string idempotencyKey);
+    IReadOnlyList<DocumentPersistenceContract> GetAll(string? tenantId, int page, int pageSize)
+    {
+        return Array.Empty<DocumentPersistenceContract>();
+    }
+
     bool TryCreate(Document document)
     {
         Save(document);

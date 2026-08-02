@@ -286,7 +286,12 @@ public sealed class Document
 
                 break;
             case IngestionState.Accepted:
-                if ((processingStage != ProcessingStage.PendingProcessing && processingStage != ProcessingStage.ClausesDetected && processingStage != ProcessingStage.ClausesCategorized && processingStage != ProcessingStage.DocumentClassified)
+                if ((processingStage != ProcessingStage.PendingProcessing
+                        && processingStage != ProcessingStage.ClausesDetected
+                        && processingStage != ProcessingStage.ClausesCategorized
+                        && processingStage != ProcessingStage.DocumentClassified
+                        && processingStage != ProcessingStage.DocumentSummarized
+                        && processingStage != ProcessingStage.DocumentEmbedded)
                     || outcome != IngestionOutcome.Accepted
                     || rejectionReason is not null)
                 {
@@ -354,7 +359,9 @@ public sealed class Document
         if (lastRevision.ProcessingStage != processingStage
             && !(processingStage == ProcessingStage.ClausesDetected && lastRevision.ProcessingStage == ProcessingStage.PendingProcessing)
             && !(processingStage == ProcessingStage.ClausesCategorized && lastRevision.ProcessingStage == ProcessingStage.ClausesDetected)
-            && !(processingStage == ProcessingStage.DocumentClassified && lastRevision.ProcessingStage == ProcessingStage.ClausesCategorized))
+            && !(processingStage == ProcessingStage.DocumentClassified && lastRevision.ProcessingStage == ProcessingStage.ClausesCategorized)
+            && !(processingStage == ProcessingStage.DocumentSummarized && lastRevision.ProcessingStage == ProcessingStage.DocumentClassified)
+            && !(processingStage == ProcessingStage.DocumentEmbedded && lastRevision.ProcessingStage == ProcessingStage.DocumentSummarized))
         {
             throw new DomainValidationException("Latest revision processing stage does not match document stage.");
         }

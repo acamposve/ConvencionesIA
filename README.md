@@ -45,8 +45,10 @@ The repository currently contains:
 
 - [src/DocumentIngestion.Domain](src/DocumentIngestion.Domain) - domain models, business rules, and services
 - [src/DocumentIngestion.Application](src/DocumentIngestion.Application) - use cases, contracts, repositories, and security enforcement
+- [frontend](frontend) - Vite/React frontend for the document ingestion experience
 - [tests](tests) - unit, integration, contract, and acceptance tests
 - [docs/document-ingestion](docs/document-ingestion) - feature-specific documentation and rollout notes
+- [docs/document-details](docs/document-details) - document detail experience documentation
 
 ## Quality bar
 
